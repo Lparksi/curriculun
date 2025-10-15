@@ -9,6 +9,8 @@ class Course {
   final int startSection;     // 开始节次 (1-9)
   final int duration;         // 持续节数
   final Color color;          // 课程卡片颜色
+  final int startWeek;        // 开始周次
+  final int endWeek;          // 结束周次
 
   Course({
     required this.name,
@@ -18,10 +20,35 @@ class Course {
     required this.startSection,
     required this.duration,
     required this.color,
+    this.startWeek = 1,        // 默认第1周开始
+    this.endWeek = 20,         // 默认第20周结束
   });
 
   /// 结束节次
   int get endSection => startSection + duration - 1;
+
+  /// 获取上课时间段文字描述
+  String get timeRangeText {
+    final start = SectionTimeTable.sections[startSection - 1];
+    final end = SectionTimeTable.sections[endSection - 1];
+    return '${start.startTime}-${end.endTime}';
+  }
+
+  /// 获取周次范围文字描述
+  String get weekRangeText {
+    if (startWeek == endWeek) {
+      return '第$startWeek周';
+    }
+    return '第$startWeek-$endWeek周';
+  }
+
+  /// 获取节次范围文字描述
+  String get sectionRangeText {
+    if (duration == 1) {
+      return '第$startSection节';
+    }
+    return '第$startSection-$endSection节';
+  }
 }
 
 /// 节次时间配置

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/course.dart';
 import '../utils/course_colors.dart';
+import '../widgets/course_detail_dialog.dart';
 
 /// 课程表主页面
 class CourseTablePage extends StatefulWidget {
@@ -11,11 +12,72 @@ class CourseTablePage extends StatefulWidget {
 }
 
 class _CourseTablePageState extends State<CourseTablePage> {
-  final int _currentWeek = 5; // 当前第几周
-  final DateTime _selectedDate = DateTime.now();
+  int _currentWeek = 5; // 当前显示的周次
+  late PageController _pageController;
+  final int _totalWeeks = 20; // 总周数
+  final DateTime _semesterStartDate = DateTime(2025, 9, 1); // 学期开始日期
+  final DateTime _today = DateTime.now(); // 今天的日期
 
   // 示例课程数据
   late final List<Course> _courses = _initCourses();
+
+  @override
+  void initState() {
+    super.initState();
+    // 计算今天所在的实际周次
+    final actualWeek = _calculateWeekNumber(_today);
+    _currentWeek = actualWeek;
+    // 初始化 PageController，初始页面为今天所在周
+    _pageController = PageController(initialPage: _currentWeek - 1);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  /// 计算指定日期所在的周次
+  int _calculateWeekNumber(DateTime date) {
+    final difference = date.difference(_semesterStartDate).inDays;
+    final week = (difference / 7).floor() + 1;
+    // 确保周次在有效范围内
+    return week.clamp(1, _totalWeeks);
+  }
+
+  /// 获取今天所在的实际周次
+  int get _actualCurrentWeek => _calculateWeekNumber(_today);
+
+  /// 判断当前视图是否在本周
+  bool get _isViewingCurrentWeek => _currentWeek == _actualCurrentWeek;
+
+  /// 跳转到本周
+  void _jumpToCurrentWeek() {
+    if (!_isViewingCurrentWeek) {
+      _pageController.animateToPage(
+        _actualCurrentWeek - 1,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
+
+  /// 获取当前显示周次的开始日期
+  DateTime get _currentWeekStartDate {
+    // 从学期开始日期计算当前周的开始日期
+    final daysOffset = (_currentWeek - 1) * 7;
+    final weekStart = _semesterStartDate.add(Duration(days: daysOffset));
+    // 调整到周一
+    final weekday = weekStart.weekday;
+    return weekStart.subtract(Duration(days: weekday - 1));
+  }
+
+  /// 根据当前周次过滤课程
+  List<Course> get _currentWeekCourses {
+    return _courses.where((course) {
+      return _currentWeek >= course.startWeek && _currentWeek <= course.endWeek;
+    }).toList();
+  }
 
   List<Course> _initCourses() {
     // 先重置颜色管理器
@@ -29,6 +91,8 @@ class _CourseTablePageState extends State<CourseTablePage> {
         weekday: 1,
         startSection: 1,
         duration: 2,
+        startWeek: 1,
+        endWeek: 16,
         color: CourseColorManager.getColorForCourse('大学体育(三)'),
       ),
       Course(
@@ -38,6 +102,8 @@ class _CourseTablePageState extends State<CourseTablePage> {
         weekday: 2,
         startSection: 1,
         duration: 2,
+        startWeek: 1,
+        endWeek: 18,
         color: CourseColorManager.getColorForCourse('大学英语(三)'),
       ),
       Course(
@@ -47,6 +113,8 @@ class _CourseTablePageState extends State<CourseTablePage> {
         weekday: 3,
         startSection: 1,
         duration: 2,
+        startWeek: 1,
+        endWeek: 16,
         color: CourseColorManager.getColorForCourse('大学物理'),
       ),
       Course(
@@ -56,6 +124,8 @@ class _CourseTablePageState extends State<CourseTablePage> {
         weekday: 4,
         startSection: 1,
         duration: 2,
+        startWeek: 1,
+        endWeek: 18,
         color: CourseColorManager.getColorForCourse('计算机系统基础'),
       ),
       Course(
@@ -65,6 +135,8 @@ class _CourseTablePageState extends State<CourseTablePage> {
         weekday: 5,
         startSection: 1,
         duration: 2,
+        startWeek: 3,
+        endWeek: 18,
         color: CourseColorManager.getColorForCourse('概率论与数理统计'),
       ),
       Course(
@@ -205,7 +277,21 @@ class _CourseTablePageState extends State<CourseTablePage> {
           children: [
             _buildHeader(),
             _buildWeekSelector(),
-            Expanded(child: _buildCourseGrid()),
+            Expanded(
+              child: PageView.builder(
+                controller: _pageController,
+                itemCount: _totalWeeks,
+                physics: const PageScrollPhysics(), // 明确使用 PageView 的物理特性
+                onPageChanged: (index) {
+                  setState(() {
+                    _currentWeek = index + 1;
+                  });
+                },
+                itemBuilder: (context, index) {
+                  return _buildCourseGrid();
+                },
+              ),
+            ),
           ],
         ),
       ),
@@ -222,19 +308,82 @@ class _CourseTablePageState extends State<CourseTablePage> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                '${_selectedDate.year}/${_selectedDate.month.toString().padLeft(2, '0')}/${_selectedDate.day.toString().padLeft(2, '0')}',
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
+              GestureDetector(
+                onTap: _jumpToCurrentWeek,
+                child: Text(
+                  '${_today.year}/${_today.month.toString().padLeft(2, '0')}/${_today.day.toString().padLeft(2, '0')}',
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
-              Text(
-                '第 $_currentWeek 周  当前为第 ${_currentWeek + 1} 周',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[600],
-                ),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  // 上一周按钮
+                  InkWell(
+                    onTap: _currentWeek > 1
+                        ? () {
+                            _pageController.previousPage(
+                              duration: const Duration(milliseconds: 300),
+                              curve: Curves.easeInOut,
+                            );
+                          }
+                        : null,
+                    child: Container(
+                      padding: const EdgeInsets.all(2),
+                      child: Icon(
+                        Icons.chevron_left,
+                        size: 18,
+                        color: _currentWeek > 1 ? Colors.grey[700] : Colors.grey[300],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  GestureDetector(
+                    onTap: _jumpToCurrentWeek,
+                    child: Row(
+                      children: [
+                        Text(
+                          '第 $_currentWeek 周',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                        if (!_isViewingCurrentWeek) ...[
+                          const SizedBox(width: 4),
+                          Icon(
+                            Icons.refresh,
+                            size: 14,
+                            color: Colors.blue[600],
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  // 下一周按钮
+                  InkWell(
+                    onTap: _currentWeek < _totalWeeks
+                        ? () {
+                            _pageController.nextPage(
+                              duration: const Duration(milliseconds: 300),
+                              curve: Curves.easeInOut,
+                            );
+                          }
+                        : null,
+                    child: Container(
+                      padding: const EdgeInsets.all(2),
+                      child: Icon(
+                        Icons.chevron_right,
+                        size: 18,
+                        color: _currentWeek < _totalWeeks ? Colors.grey[700] : Colors.grey[300],
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -276,9 +425,7 @@ class _CourseTablePageState extends State<CourseTablePage> {
 
   /// 构建周次选择器
   Widget _buildWeekSelector() {
-    final startOfWeek = _selectedDate.subtract(
-      Duration(days: _selectedDate.weekday - 1),
-    );
+    final startOfWeek = _currentWeekStartDate;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -340,6 +487,8 @@ class _CourseTablePageState extends State<CourseTablePage> {
   /// 构建课程网格
   Widget _buildCourseGrid() {
     return SingleChildScrollView(
+      scrollDirection: Axis.vertical, // 明确指定垂直滚动
+      physics: const ClampingScrollPhysics(), // 使用 ClampingScrollPhysics 避免滚动冲突
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -369,18 +518,18 @@ class _CourseTablePageState extends State<CourseTablePage> {
               Text(
                 '${section.section}',
                 style: const TextStyle(
-                  fontSize: 16,
+                  fontSize: 18,
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              const SizedBox(height: 2),
+              const SizedBox(height: 3),
               Text(
                 section.timeRange,
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: 8,
+                  fontSize: 10,
                   color: Colors.grey[600],
-                  height: 1.1,
+                  height: 1.2,
                 ),
               ),
             ],
@@ -393,6 +542,9 @@ class _CourseTablePageState extends State<CourseTablePage> {
   /// 构建课程网格
   Widget _buildCoursesGrid() {
     const cellHeight = 85.0;
+    // 使用当前周次过滤后的课程
+    final visibleCourses = _currentWeekCourses;
+
     return SizedBox(
       height: SectionTimeTable.sections.length * cellHeight,
       child: Stack(
@@ -418,8 +570,8 @@ class _CourseTablePageState extends State<CourseTablePage> {
               ),
             ),
           ),
-          // 课程卡片
-          ..._courses.map((course) => _buildCourseCard(course)),
+          // 课程卡片 - 仅显示当前周的课程
+          ...visibleCourses.map((course) => _buildCourseCard(course)),
         ],
       ),
     );
@@ -453,73 +605,76 @@ class _CourseTablePageState extends State<CourseTablePage> {
       top: top + 1.5,
       width: cellWidth - 3,
       height: height,
-      child: Container(
-        decoration: BoxDecoration(
-          color: course.color,
-          borderRadius: BorderRadius.circular(6),
-          // 添加渐变覆盖层增强深度
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              course.color,
-              course.color.withValues(alpha: 0.9),
-            ],
-          ),
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // 课程名称 - 主要信息,字体最大最粗
-            Text(
-              course.name,
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: nameFontSize,
-                fontWeight: FontWeight.w700,
-                height: 1.15,
-                letterSpacing: -0.2,
-                shadows: textShadow,
-              ),
-              maxLines: isSmallCard ? 1 : 3,
-              overflow: TextOverflow.ellipsis,
+      child: GestureDetector(
+        onTap: () => CourseDetailDialog.show(context, course),
+        child: Container(
+          decoration: BoxDecoration(
+            color: course.color,
+            borderRadius: BorderRadius.circular(6),
+            // 添加渐变覆盖层增强深度
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                course.color,
+                course.color.withValues(alpha: 0.9),
+              ],
             ),
-            // 上课地点 - 次要信息
-            if (course.location.isNotEmpty) ...[
-              const SizedBox(height: 2),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 课程名称 - 主要信息,字体最大最粗
               Text(
-                '@${course.location}',
+                course.name,
                 style: TextStyle(
                   color: Colors.white,
-                  fontSize: locationFontSize,
-                  fontWeight: FontWeight.w500,
-                  height: 1.2,
-                  letterSpacing: -0.1,
+                  fontSize: nameFontSize,
+                  fontWeight: FontWeight.w700,
+                  height: 1.15,
+                  letterSpacing: -0.2,
                   shadows: textShadow,
                 ),
-                maxLines: isSmallCard ? 1 : 2,
+                maxLines: isSmallCard ? 1 : 3,
                 overflow: TextOverflow.ellipsis,
               ),
-            ],
-            // 教师姓名 - 辅助信息,字体较小
-            if (course.teacher.isNotEmpty) ...[
-              const SizedBox(height: 1.5),
-              Text(
-                course.teacher,
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.95),
-                  fontSize: teacherFontSize,
-                  fontWeight: FontWeight.w400,
-                  height: 1.2,
-                  shadows: textShadow,
+              // 上课地点 - 次要信息
+              if (course.location.isNotEmpty) ...[
+                const SizedBox(height: 2),
+                Text(
+                  '@${course.location}',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: locationFontSize,
+                    fontWeight: FontWeight.w500,
+                    height: 1.2,
+                    letterSpacing: -0.1,
+                    shadows: textShadow,
+                  ),
+                  maxLines: isSmallCard ? 1 : 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
+              ],
+              // 教师姓名 - 辅助信息,字体较小
+              if (course.teacher.isNotEmpty) ...[
+                const SizedBox(height: 1.5),
+                Text(
+                  course.teacher,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.95),
+                    fontSize: teacherFontSize,
+                    fontWeight: FontWeight.w400,
+                    height: 1.2,
+                    shadows: textShadow,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
