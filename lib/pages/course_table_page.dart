@@ -170,6 +170,7 @@ class _CourseTablePageState extends State<CourseTablePage> {
 
     return Scaffold(
       backgroundColor: Colors.white,
+      drawer: _buildDrawer(),
       body: SafeArea(
         child: Column(
           children: [
@@ -203,8 +204,20 @@ class _CourseTablePageState extends State<CourseTablePage> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
+          // 汉堡菜单按钮
+          Builder(
+            builder: (context) => IconButton(
+              icon: const Icon(Icons.menu, size: 28),
+              tooltip: '菜单',
+              onPressed: () {
+                Scaffold.of(context).openDrawer();
+              },
+              padding: const EdgeInsets.all(8),
+              constraints: const BoxConstraints(),
+            ),
+          ),
           Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               GestureDetector(
                 onTap: _jumpToCurrentWeek,
@@ -296,37 +309,6 @@ class _CourseTablePageState extends State<CourseTablePage> {
                     ),
                   ],
                 ),
-              ),
-            ],
-          ),
-          Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.add, size: 28),
-                onPressed: () {},
-                padding: const EdgeInsets.all(8),
-                constraints: const BoxConstraints(),
-              ),
-              const SizedBox(width: 4),
-              IconButton(
-                icon: const Icon(Icons.file_download, size: 28),
-                onPressed: () {},
-                padding: const EdgeInsets.all(8),
-                constraints: const BoxConstraints(),
-              ),
-              const SizedBox(width: 4),
-              IconButton(
-                icon: const Icon(Icons.share, size: 28),
-                onPressed: () {},
-                padding: const EdgeInsets.all(8),
-                constraints: const BoxConstraints(),
-              ),
-              const SizedBox(width: 4),
-              IconButton(
-                icon: const Icon(Icons.more_vert, size: 28),
-                onPressed: _showMoreMenu,
-                padding: const EdgeInsets.all(8),
-                constraints: const BoxConstraints(),
               ),
             ],
           ),
@@ -587,80 +569,228 @@ class _CourseTablePageState extends State<CourseTablePage> {
     );
   }
 
-  /// 显示更多菜单
-  void _showMoreMenu() {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.school),
-                title: const Text('课程管理'),
-                onTap: () async {
-                  Navigator.pop(context); // 关闭菜单
-                  // 导航到课程管理页面
-                  await Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const CourseManagementPage(),
-                    ),
-                  );
-                  // 返回时重新加载课程
-                  await _reloadCourses();
-                },
-              ),
-              const Divider(height: 1),
-              ListTile(
-                leading: const Icon(Icons.schedule),
-                title: const Text('时间表管理'),
-                onTap: () async {
-                  Navigator.pop(context); // 关闭菜单
-                  // 导航到时间表管理页面
-                  await Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const TimeTableManagementPage(),
-                    ),
-                  );
-                  // 返回时重新加载时间表
-                  await _reloadTimeTable();
-                },
-              ),
-              const Divider(height: 1),
-              ListTile(
-                leading: const Icon(Icons.calendar_month),
-                title: const Text('学期管理'),
-                onTap: () async {
-                  Navigator.pop(context); // 关闭菜单
-                  // 导航到学期管理页面
-                  final result = await Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const SemesterManagementPage(),
-                    ),
-                  );
-                  // 如果学期被切换或更新，重新加载学期和课程
-                  if (result == true) {
-                    await _reloadSemester();
-                  }
-                },
-              ),
-              const Divider(height: 1),
-              ListTile(
-                leading: const Icon(Icons.info_outline),
-                title: const Text('关于'),
-                onTap: () {
-                  Navigator.pop(context);
-                  // TODO: 显示关于页面
-                },
-              ),
-            ],
+  /// 构建抽屉菜单
+  Widget _buildDrawer() {
+    return Drawer(
+      child: ListView(
+        padding: EdgeInsets.zero,
+        children: [
+          // 抽屉头部
+          DrawerHeader(
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                const Icon(
+                  Icons.calendar_today,
+                  color: Colors.white,
+                  size: 48,
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  '课程表',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _currentSemester?.name ?? '',
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
           ),
-        );
-      },
+          // 快捷操作分组
+          _buildDrawerSection('快捷操作'),
+          ListTile(
+            leading: Icon(Icons.add_circle, color: Colors.red[600]),
+            title: const Text('添加课程'),
+            subtitle: const Text('快速添加新课程'),
+            onTap: () async {
+              Navigator.pop(context); // 关闭抽屉
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const CourseManagementPage(),
+                ),
+              );
+              await _reloadCourses();
+            },
+          ),
+          const Divider(),
+          // 管理功能分组
+          _buildDrawerSection('管理'),
+          ListTile(
+            leading: Icon(Icons.school, color: Colors.blue[600]),
+            title: const Text('课程管理'),
+            subtitle: const Text('查看和管理所有课程'),
+            onTap: () async {
+              Navigator.pop(context); // 关闭抽屉
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const CourseManagementPage(),
+                ),
+              );
+              await _reloadCourses();
+            },
+          ),
+          ListTile(
+            leading: Icon(Icons.schedule, color: Colors.orange[600]),
+            title: const Text('时间表管理'),
+            subtitle: const Text('自定义上课时间'),
+            onTap: () async {
+              Navigator.pop(context);
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const TimeTableManagementPage(),
+                ),
+              );
+              await _reloadTimeTable();
+            },
+          ),
+          ListTile(
+            leading: Icon(Icons.calendar_month, color: Colors.green[600]),
+            title: const Text('学期管理'),
+            subtitle: const Text('管理学期设置'),
+            onTap: () async {
+              Navigator.pop(context);
+              final result = await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const SemesterManagementPage(),
+                ),
+              );
+              if (result == true) {
+                await _reloadSemester();
+              }
+            },
+          ),
+          const Divider(),
+          // 工具功能分组
+          _buildDrawerSection('工具'),
+          ListTile(
+            leading: Icon(Icons.file_download, color: Colors.teal[600]),
+            title: const Text('导入课程'),
+            subtitle: const Text('从文件导入课程数据'),
+            onTap: () {
+              Navigator.pop(context);
+              // TODO: 实现导入功能
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('导入功能正在开发中...')),
+              );
+            },
+          ),
+          ListTile(
+            leading: Icon(Icons.file_upload, color: Colors.indigo[600]),
+            title: const Text('导出课程'),
+            subtitle: const Text('导出课程数据到文件'),
+            onTap: () {
+              Navigator.pop(context);
+              // TODO: 实现导出功能
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('导出功能正在开发中...')),
+              );
+            },
+          ),
+          ListTile(
+            leading: Icon(Icons.share, color: Colors.purple[600]),
+            title: const Text('分享课程表'),
+            subtitle: const Text('生成分享图片'),
+            onTap: () {
+              Navigator.pop(context);
+              // TODO: 实现分享功能
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('分享功能正在开发中...')),
+              );
+            },
+          ),
+          const Divider(),
+          // 设置和帮助分组
+          _buildDrawerSection('其他'),
+          ListTile(
+            leading: Icon(Icons.settings, color: Colors.grey[700]),
+            title: const Text('设置'),
+            subtitle: const Text('应用设置和偏好'),
+            onTap: () {
+              Navigator.pop(context);
+              // TODO: 实现设置页面
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('设置页面正在开发中...')),
+              );
+            },
+          ),
+          ListTile(
+            leading: Icon(Icons.help_outline, color: Colors.amber[700]),
+            title: const Text('帮助'),
+            subtitle: const Text('使用指南和常见问题'),
+            onTap: () {
+              Navigator.pop(context);
+              // TODO: 实现帮助页面
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('帮助页面正在开发中...')),
+              );
+            },
+          ),
+          ListTile(
+            leading: Icon(Icons.info_outline, color: Colors.blue[700]),
+            title: const Text('关于'),
+            subtitle: const Text('版本信息和开发者'),
+            onTap: () {
+              Navigator.pop(context);
+              _showAboutDialog();
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 构建抽屉菜单分组标题
+  Widget _buildDrawerSection(String title) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      child: Text(
+        title,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+          color: Colors.grey[600],
+          letterSpacing: 0.5,
+        ),
+      ),
+    );
+  }
+
+  /// 显示关于对话框
+  void _showAboutDialog() {
+    showAboutDialog(
+      context: context,
+      applicationName: '课程表',
+      applicationVersion: '1.0.0+1',
+      applicationIcon: const Icon(
+        Icons.calendar_today,
+        size: 48,
+        color: Color(0xFF6BA3FF),
+      ),
+      applicationLegalese: '© 2025 Curriculum App',
+      children: [
+        const SizedBox(height: 16),
+        const Text(
+          '一个功能强大的智能课程管理应用，'
+          '支持多学期管理、自定义时间表、课程导入导出等功能。',
+        ),
+      ],
     );
   }
 }
