@@ -9,6 +9,7 @@ import '../services/course_service.dart';
 import '../services/time_table_service.dart';
 import '../services/display_preferences_service.dart';
 import '../widgets/course_detail_dialog.dart';
+import '../widgets/course_table_share_dialog.dart';
 import 'semester_management_page.dart';
 import 'course_management_page.dart';
 import 'time_table_management_page.dart';
@@ -748,10 +749,7 @@ class _CourseTablePageState extends State<CourseTablePage> {
             subtitle: const Text('生成分享图片'),
             onTap: () {
               Navigator.pop(context);
-              // TODO: 实现分享功能
-              ScaffoldMessenger.of(
-                context,
-              ).showSnackBar(const SnackBar(content: Text('分享功能正在开发中...')));
+              _showShareDialog();
             },
           ),
           const Divider(),
@@ -881,6 +879,19 @@ class _CourseTablePageState extends State<CourseTablePage> {
           letterSpacing: 0.5,
         ),
       ),
+    );
+  }
+
+  /// 显示分享对话框
+  void _showShareDialog() {
+    CourseTableShareDialog.show(
+      context,
+      courses: _currentWeekCourses,
+      timeTable: _currentTimeTable,
+      currentWeek: _currentWeek,
+      weekStartDate: _currentWeekStartDate,
+      showWeekend: _showWeekend,
+      semesterName: _currentSemester?.name,
     );
   }
 
