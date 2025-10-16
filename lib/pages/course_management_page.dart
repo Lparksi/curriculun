@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import '../models/course.dart';
+import '../models/semester_settings.dart';
 import '../models/time_table.dart';
 import '../services/course_service.dart';
+import '../services/settings_service.dart';
 import '../services/time_table_service.dart';
 import '../widgets/course_edit_dialog.dart';
 
@@ -16,6 +18,7 @@ class CourseManagementPage extends StatefulWidget {
 class _CourseManagementPageState extends State<CourseManagementPage> {
   List<Course> _courses = [];
   late TimeTable _currentTimeTable;
+  SemesterSettings? _currentSemester;
   bool _isLoading = true;
   bool _isMultiSelectMode = false; // 是否处于多选模式
   final Set<int> _selectedIndices = {}; // 选中的课程索引
@@ -33,16 +36,20 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
     });
 
     final results = await Future.wait([
-      CourseService.loadCourses(),
       TimeTableService.getActiveTimeTable(),
+      SettingsService.getActiveSemester(),
     ]);
 
-    final courses = results[0] as List<Course>;
-    final timeTable = results[1] as TimeTable;
+    final timeTable = results[0] as TimeTable;
+    final semester = results[1] as SemesterSettings;
+
+    // 根据当前学期加载课程
+    final courses = await CourseService.loadCoursesBySemester(semester.id);
 
     setState(() {
       _courses = courses;
       _currentTimeTable = timeTable;
+      _currentSemester = semester;
       _isLoading = false;
     });
   }
@@ -55,6 +62,7 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
         course: course,
         courseIndex: index,
         allCourses: _courses,
+        semesterId: _currentSemester?.id, // 传递当前学期ID
       ),
     );
 
@@ -71,9 +79,9 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
           // 更新课程
           await CourseService.updateCourse(index, result);
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('课程已更新')),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(const SnackBar(content: Text('课程已更新')));
           }
         } else {
           // 检查时间冲突
@@ -104,9 +112,9 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
           // 添加新课程
           await CourseService.addCourse(result);
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('课程已添加')),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(const SnackBar(content: Text('课程已添加')));
           }
         }
 
@@ -153,7 +161,9 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('已删除：${course.name}（$weekdayText ${course.sectionRangeText}）'),
+            content: Text(
+              '已删除：${course.name}（$weekdayText ${course.sectionRangeText}）',
+            ),
             action: SnackBarAction(
               label: '撤销',
               onPressed: () async {
@@ -197,9 +207,9 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
       await _loadCourses();
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('已恢复为默认课程')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('已恢复为默认课程')));
       }
     }
   }
@@ -267,7 +277,8 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
     if (confirm == true && mounted) {
       // 保存要删除的课程（用于撤销）
       final deletedCourses = <Course>[];
-      final sortedIndices = _selectedIndices.toList()..sort((a, b) => b.compareTo(a));
+      final sortedIndices = _selectedIndices.toList()
+        ..sort((a, b) => b.compareTo(a));
 
       for (final index in sortedIndices) {
         deletedCourses.add(_courses[index]);
@@ -328,7 +339,9 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                         : Icons.check_box_outline_blank,
                   ),
                   onPressed: _toggleSelectAll,
-                  tooltip: _selectedIndices.length == _courses.length ? '取消全选' : '全选',
+                  tooltip: _selectedIndices.length == _courses.length
+                      ? '取消全选'
+                      : '全选',
                 ),
                 IconButton(
                   icon: const Icon(Icons.delete),
@@ -352,8 +365,8 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _courses.isEmpty
-              ? _buildEmptyState()
-              : _buildCourseList(),
+          ? _buildEmptyState()
+          : _buildCourseList(),
       floatingActionButton: _isMultiSelectMode
           ? null
           : FloatingActionButton(
@@ -379,15 +392,19 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
           Text(
             '暂无课程',
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-                ),
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurface.withValues(alpha: 0.6),
+            ),
           ),
           const SizedBox(height: 8),
           Text(
             '点击右下角按钮添加课程',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
-                ),
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurface.withValues(alpha: 0.5),
+            ),
           ),
         ],
       ),
@@ -427,7 +444,10 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
   }
 
   /// 构建课程分组
-  Widget _buildCourseSection(String courseName, List<MapEntry<int, Course>> courses) {
+  Widget _buildCourseSection(
+    String courseName,
+    List<MapEntry<int, Course>> courses,
+  ) {
     // 使用第一个课程的颜色作为分组标识
     final courseColor = courses.first.value.color;
 
@@ -451,9 +471,9 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                 child: Text(
                   courseName,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -468,8 +488,8 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                 child: Text(
                   '${courses.length}节',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onPrimaryContainer,
-                      ),
+                    color: Theme.of(context).colorScheme.onPrimaryContainer,
+                  ),
                 ),
               ),
             ],
@@ -491,7 +511,9 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
       elevation: isSelected ? 4 : 1,
       child: Dismissible(
         key: ValueKey('course_$index'),
-        direction: _isMultiSelectMode ? DismissDirection.none : DismissDirection.endToStart,
+        direction: _isMultiSelectMode
+            ? DismissDirection.none
+            : DismissDirection.endToStart,
         background: Container(
           alignment: Alignment.centerRight,
           padding: const EdgeInsets.only(right: 20),
@@ -543,7 +565,8 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                         children: [
                           Text(
                             '周${weekdayNames[course.weekday - 1]}',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
                                   color: Colors.white,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -561,9 +584,8 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                         // 时间信息（主标题）
                         Text(
                           '${course.sectionRangeText} ${course.getTimeRangeText(_currentTimeTable)}',
-                          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
+                          style: Theme.of(context).textTheme.titleSmall
+                              ?.copyWith(fontWeight: FontWeight.bold),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -575,14 +597,19 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                             Icon(
                               Icons.location_on,
                               size: 14,
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
                             ),
                             const SizedBox(width: 4),
                             Expanded(
                               child: Text(
                                 course.location,
-                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant,
                                     ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
@@ -600,13 +627,18 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                                 Icon(
                                   Icons.person,
                                   size: 14,
-                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
                                   course.teacher,
-                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.onSurfaceVariant,
                                       ),
                                 ),
                                 const SizedBox(width: 12),
@@ -614,13 +646,18 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                               Icon(
                                 Icons.event,
                                 size: 14,
-                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
                               ),
                               const SizedBox(width: 4),
                               Text(
                                 course.weekRangeText,
-                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant,
                                     ),
                               ),
                             ],
@@ -634,7 +671,8 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                   if (!_isMultiSelectMode)
                     IconButton(
                       icon: const Icon(Icons.edit_outlined),
-                      onPressed: () => _showEditDialog(course: course, index: index),
+                      onPressed: () =>
+                          _showEditDialog(course: course, index: index),
                       tooltip: '编辑',
                     ),
                 ],

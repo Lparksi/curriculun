@@ -6,7 +6,7 @@ import '../services/settings_service.dart';
 import '../services/course_service.dart';
 import '../services/time_table_service.dart';
 import '../widgets/course_detail_dialog.dart';
-import 'semester_settings_page.dart';
+import 'semester_management_page.dart';
 import 'course_management_page.dart';
 import 'time_table_management_page.dart';
 
@@ -27,6 +27,7 @@ class _CourseTablePageState extends State<CourseTablePage> {
   bool _isLoadingSettings = true; // 是否正在加载设置
   List<Course> _courses = []; // 课程数据列表
   late TimeTable _currentTimeTable; // 当前使用的时间表
+  SemesterSettings? _currentSemester; // 当前激活的学期
 
   @override
   void initState() {
@@ -36,20 +37,22 @@ class _CourseTablePageState extends State<CourseTablePage> {
 
   /// 加载设置并初始化
   Future<void> _loadSettingsAndInitialize() async {
-    // 并行加载设置、课程数据和时间表
+    // 并行加载设置、时间表和激活学期
     final results = await Future.wait([
-      SettingsService.loadSemesterSettings(),
-      CourseService.loadCourses(), // 使用新的loadCourses方法
-      TimeTableService.getActiveTimeTable(), // 加载当前时间表
+      TimeTableService.getActiveTimeTable(),
+      SettingsService.getActiveSemester(),
     ]);
 
-    final settings = results[0] as SemesterSettings;
-    final courses = results[1] as List<Course>;
-    final timeTable = results[2] as TimeTable;
+    final timeTable = results[0] as TimeTable;
+    final semester = results[1] as SemesterSettings;
+
+    // 根据当前学期加载课程
+    final courses = await CourseService.loadCoursesBySemester(semester.id);
 
     // 先设置基础数据,用于计算当前周次
-    _semesterStartDate = settings.startDate;
-    _totalWeeks = settings.totalWeeks;
+    _currentSemester = semester;
+    _semesterStartDate = semester.startDate;
+    _totalWeeks = semester.totalWeeks;
     _currentTimeTable = timeTable;
 
     // 计算今天所在的实际周次
@@ -66,12 +69,16 @@ class _CourseTablePageState extends State<CourseTablePage> {
     });
   }
 
-  /// 重新加载设置（从设置页面返回时调用）
-  Future<void> _reloadSettings() async {
-    final settings = await SettingsService.loadSemesterSettings();
+  /// 重新加载学期（从学期管理页面返回时调用）
+  Future<void> _reloadSemester() async {
+    final semester = await SettingsService.getActiveSemester();
+    final courses = await CourseService.loadCoursesBySemester(semester.id);
+
     setState(() {
-      _semesterStartDate = settings.startDate;
-      _totalWeeks = settings.totalWeeks;
+      _currentSemester = semester;
+      _semesterStartDate = semester.startDate;
+      _totalWeeks = semester.totalWeeks;
+      _courses = courses;
     });
 
     // 重新计算当前周次
@@ -85,10 +92,14 @@ class _CourseTablePageState extends State<CourseTablePage> {
 
   /// 重新加载课程（从课程管理页面返回时调用）
   Future<void> _reloadCourses() async {
-    final courses = await CourseService.loadCourses();
-    setState(() {
-      _courses = courses;
-    });
+    if (_currentSemester != null) {
+      final courses = await CourseService.loadCoursesBySemester(
+        _currentSemester!.id,
+      );
+      setState(() {
+        _courses = courses;
+      });
+    }
   }
 
   /// 重新加载时间表（从时间表管理页面返回时调用）
@@ -153,9 +164,7 @@ class _CourseTablePageState extends State<CourseTablePage> {
     if (_isLoadingSettings) {
       return const Scaffold(
         backgroundColor: Colors.white,
-        body: Center(
-          child: CircularProgressIndicator(),
-        ),
+        body: Center(child: CircularProgressIndicator()),
       );
     }
 
@@ -228,7 +237,9 @@ class _CourseTablePageState extends State<CourseTablePage> {
                         child: Icon(
                           Icons.chevron_left,
                           size: 18,
-                          color: _currentWeek > 1 ? Colors.grey[700] : Colors.grey[300],
+                          color: _currentWeek > 1
+                              ? Colors.grey[700]
+                              : Colors.grey[300],
                         ),
                       ),
                     ),
@@ -248,7 +259,9 @@ class _CourseTablePageState extends State<CourseTablePage> {
                           const SizedBox(width: 4),
                           // 刷新按钮 - 始终显示,本周时灰色且不可点击
                           GestureDetector(
-                            onTap: _isViewingCurrentWeek ? null : _jumpToCurrentWeek,
+                            onTap: _isViewingCurrentWeek
+                                ? null
+                                : _jumpToCurrentWeek,
                             child: Icon(
                               Icons.refresh,
                               size: 14,
@@ -275,7 +288,9 @@ class _CourseTablePageState extends State<CourseTablePage> {
                         child: Icon(
                           Icons.chevron_right,
                           size: 18,
-                          color: _currentWeek < _totalWeeks ? Colors.grey[700] : Colors.grey[300],
+                          color: _currentWeek < _totalWeeks
+                              ? Colors.grey[700]
+                              : Colors.grey[300],
                         ),
                       ),
                     ),
@@ -342,17 +357,15 @@ class _CourseTablePageState extends State<CourseTablePage> {
               children: List.generate(7, (index) {
                 final date = startOfWeek.add(Duration(days: index));
                 final weekdayNames = ['一', '二', '三', '四', '五', '六', '日'];
-                final isToday = date.day == DateTime.now().day &&
+                final isToday =
+                    date.day == DateTime.now().day &&
                     date.month == DateTime.now().month;
 
                 return Column(
                   children: [
                     Text(
                       weekdayNames[index],
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Colors.grey[600],
-                      ),
+                      style: TextStyle(fontSize: 11, color: Colors.grey[600]),
                     ),
                     const SizedBox(height: 2),
                     Container(
@@ -512,10 +525,7 @@ class _CourseTablePageState extends State<CourseTablePage> {
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [
-                course.color,
-                course.color.withValues(alpha: 0.9),
-              ],
+              colors: [course.color, course.color.withValues(alpha: 0.9)],
             ),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
@@ -621,20 +631,20 @@ class _CourseTablePageState extends State<CourseTablePage> {
               ),
               const Divider(height: 1),
               ListTile(
-                leading: const Icon(Icons.settings),
-                title: const Text('学期设置'),
+                leading: const Icon(Icons.calendar_month),
+                title: const Text('学期管理'),
                 onTap: () async {
                   Navigator.pop(context); // 关闭菜单
-                  // 导航到设置页面
+                  // 导航到学期管理页面
                   final result = await Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => const SemesterSettingsPage(),
+                      builder: (context) => const SemesterManagementPage(),
                     ),
                   );
-                  // 如果设置被更新，重新加载设置
+                  // 如果学期被切换或更新，重新加载学期和课程
                   if (result == true) {
-                    await _reloadSettings();
+                    await _reloadSemester();
                   }
                 },
               ),
@@ -653,5 +663,4 @@ class _CourseTablePageState extends State<CourseTablePage> {
       },
     );
   }
-
 }

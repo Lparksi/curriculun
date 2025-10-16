@@ -3,15 +3,16 @@ import 'time_table.dart';
 
 /// 课程数据模型
 class Course {
-  final String name;           // 课程名称
-  final String location;       // 上课地点
-  final String teacher;        // 教师姓名
-  final int weekday;          // 星期几 (1-7)
-  final int startSection;     // 开始节次 (1-9)
-  final int duration;         // 持续节数
-  final Color color;          // 课程卡片颜色
-  final int startWeek;        // 开始周次
-  final int endWeek;          // 结束周次
+  final String name; // 课程名称
+  final String location; // 上课地点
+  final String teacher; // 教师姓名
+  final int weekday; // 星期几 (1-7)
+  final int startSection; // 开始节次 (1-9)
+  final int duration; // 持续节数
+  final Color color; // 课程卡片颜色
+  final int startWeek; // 开始周次
+  final int endWeek; // 结束周次
+  final String? semesterId; // 关联的学期ID (可选，用于多学期支持)
 
   Course({
     required this.name,
@@ -21,8 +22,9 @@ class Course {
     required this.startSection,
     required this.duration,
     required this.color,
-    this.startWeek = 1,        // 默认第1周开始
-    this.endWeek = 20,         // 默认第20周结束
+    this.startWeek = 1, // 默认第1周开始
+    this.endWeek = 20, // 默认第20周结束
+    this.semesterId, // 默认为null (向后兼容)
   });
 
   /// 从 JSON 创建 Course 对象
@@ -37,6 +39,7 @@ class Course {
       startWeek: json['startWeek'] as int? ?? 1,
       endWeek: json['endWeek'] as int? ?? 20,
       color: colorFromHex(json['color'] as String?),
+      semesterId: json['semesterId'] as String?, // 可选字段
     );
   }
 
@@ -52,6 +55,7 @@ class Course {
       'startWeek': startWeek,
       'endWeek': endWeek,
       'color': colorToHex(color),
+      if (semesterId != null) 'semesterId': semesterId, // 仅在非null时保存
     };
   }
 
