@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../models/course.dart';
 import '../models/semester_settings.dart';
@@ -5,6 +7,7 @@ import '../models/time_table.dart';
 import '../services/settings_service.dart';
 import '../services/course_service.dart';
 import '../services/time_table_service.dart';
+import '../services/display_preferences_service.dart';
 import '../widgets/course_detail_dialog.dart';
 import 'semester_management_page.dart';
 import 'course_management_page.dart';
@@ -32,6 +35,7 @@ class _CourseTablePageState extends State<CourseTablePage> {
   late DateTime _semesterStartDate; // 学期开始日期（从设置读取）
   final DateTime _today = DateTime.now(); // 今天的日期
   bool _isLoadingSettings = true; // 是否正在加载设置
+  bool _showWeekend = true; // 是否展示周末列
   List<Course> _courses = []; // 课程数据列表
   late TimeTable _currentTimeTable; // 当前使用的时间表
   SemesterSettings? _currentSemester; // 当前激活的学期
@@ -48,10 +52,12 @@ class _CourseTablePageState extends State<CourseTablePage> {
     final results = await Future.wait([
       TimeTableService.getActiveTimeTable(),
       SettingsService.getActiveSemester(),
+      DisplayPreferencesService.loadShowWeekend(),
     ]);
 
     final timeTable = results[0] as TimeTable;
     final semester = results[1] as SemesterSettings;
+    final showWeekend = results[2] as bool;
 
     // 根据当前学期加载课程
     final courses = await CourseService.loadCoursesBySemester(semester.id);
@@ -73,6 +79,7 @@ class _CourseTablePageState extends State<CourseTablePage> {
     setState(() {
       _courses = courses;
       _isLoadingSettings = false;
+      _showWeekend = showWeekend;
     });
   }
 
@@ -115,6 +122,16 @@ class _CourseTablePageState extends State<CourseTablePage> {
     setState(() {
       _currentTimeTable = timeTable;
     });
+  }
+
+  void _updateShowWeekend(bool value) {
+    if (_showWeekend == value) {
+      return;
+    }
+    setState(() {
+      _showWeekend = value;
+    });
+    unawaited(DisplayPreferencesService.saveShowWeekend(value));
   }
 
   @override
@@ -163,6 +180,16 @@ class _CourseTablePageState extends State<CourseTablePage> {
     return _courses.where((course) {
       return _currentWeek >= course.startWeek && _currentWeek <= course.endWeek;
     }).toList();
+  }
+
+  int get _visibleDayCount => _showWeekend ? 7 : 5;
+
+  List<int> get _visibleWeekdays =>
+      List<int>.generate(_visibleDayCount, (index) => index + 1);
+
+  double _calculateCellWidth(BuildContext context) {
+    final availableWidth = MediaQuery.of(context).size.width - 50;
+    return availableWidth / _visibleDayCount;
   }
 
   @override
@@ -346,17 +373,19 @@ class _CourseTablePageState extends State<CourseTablePage> {
           Expanded(
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: List.generate(7, (index) {
-                final date = startOfWeek.add(Duration(days: index));
-                final weekdayNames = ['一', '二', '三', '四', '五', '六', '日'];
+              children: _visibleWeekdays.map((weekday) {
+                final date = startOfWeek.add(Duration(days: weekday - 1));
+                const weekdayNames = ['一', '二', '三', '四', '五', '六', '日'];
+                final now = DateTime.now();
                 final isToday =
-                    date.day == DateTime.now().day &&
-                    date.month == DateTime.now().month;
+                    date.year == now.year &&
+                    date.month == now.month &&
+                    date.day == now.day;
 
                 return Column(
                   children: [
                     Text(
-                      weekdayNames[index],
+                      weekdayNames[weekday - 1],
                       style: TextStyle(fontSize: 11, color: labelColor),
                     ),
                     const SizedBox(height: 2),
@@ -378,7 +407,7 @@ class _CourseTablePageState extends State<CourseTablePage> {
                     ),
                   ],
                 );
-              }),
+              }).toList(),
             ),
           ),
         ],
@@ -450,8 +479,11 @@ class _CourseTablePageState extends State<CourseTablePage> {
   Widget _buildCoursesGrid() {
     const cellHeight = 85.0;
     // 使用当前周次过滤后的课程
-    final visibleCourses = _currentWeekCourses;
+    final visibleCourses = _showWeekend
+        ? _currentWeekCourses
+        : _currentWeekCourses.where((course) => course.weekday <= 5).toList();
     final dividerColor = Theme.of(context).dividerColor;
+    final cellWidth = _calculateCellWidth(context);
 
     return SizedBox(
       height: _currentTimeTable.sections.length * cellHeight,
@@ -462,33 +494,35 @@ class _CourseTablePageState extends State<CourseTablePage> {
             children: List.generate(
               _currentTimeTable.sections.length,
               (row) => Row(
-                children: List.generate(
-                  7,
-                  (col) => Container(
-                    width: (MediaQuery.of(context).size.width - 50) / 7,
-                    height: cellHeight,
-                    decoration: BoxDecoration(
-                      border: Border(
-                        bottom: BorderSide(color: dividerColor),
-                        right: BorderSide(color: dividerColor),
+                children: _visibleWeekdays
+                    .map(
+                      (_) => Container(
+                        width: cellWidth,
+                        height: cellHeight,
+                        decoration: BoxDecoration(
+                          border: Border(
+                            bottom: BorderSide(color: dividerColor),
+                            right: BorderSide(color: dividerColor),
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                ),
+                    )
+                    .toList(),
               ),
             ),
           ),
           // 课程卡片 - 仅显示当前周的课程
-          ...visibleCourses.map((course) => _buildCourseCard(course)),
+          ...visibleCourses.map(
+            (course) => _buildCourseCard(course, cellWidth),
+          ),
         ],
       ),
     );
   }
 
   /// 构建单个课程卡片
-  Widget _buildCourseCard(Course course) {
+  Widget _buildCourseCard(Course course, double cellWidth) {
     const cellHeight = 85.0;
-    final cellWidth = (MediaQuery.of(context).size.width - 50) / 7;
     final left = (course.weekday - 1) * cellWidth;
     final top = (course.startSection - 1) * cellHeight;
     final height = course.duration * cellHeight - 3;
@@ -726,8 +760,8 @@ class _CourseTablePageState extends State<CourseTablePage> {
             },
           ),
           const Divider(),
-          // 设置和帮助分组
-          _buildDrawerSection('其他'),
+          // 更多选项
+          _buildDrawerSection('更多选项'),
           ListTile(
             leading: Icon(
               Icons.dark_mode,
@@ -736,11 +770,24 @@ class _CourseTablePageState extends State<CourseTablePage> {
             title: const Text('主题模式'),
             subtitle: Text('当前：${_describeThemeMode(widget.themeMode)}'),
             onTap: () {
-              Navigator.pop(context);
               Future.microtask(_showThemeModeSelector);
             },
             trailing: const Icon(Icons.chevron_right),
           ),
+          SwitchListTile.adaptive(
+            value: _showWeekend,
+            title: const Text('展示周六、周日'),
+            subtitle: const Text('切换课程表是否包含周末列'),
+            secondary: Icon(
+              Icons.weekend,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            onChanged: _updateShowWeekend,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+          ),
+          const Divider(),
+          // 设置和帮助分组
+          _buildDrawerSection('其他'),
           ListTile(
             leading: Icon(Icons.help_outline, color: Colors.amber[700]),
             title: const Text('帮助'),
