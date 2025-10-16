@@ -3,9 +3,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'pages/course_table_page.dart';
 import 'services/app_theme_service.dart';
+import 'utils/material_icon_loader.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await MaterialIconLoader.ensureLoaded();
   final initialThemeMode = await AppThemeService.loadThemeMode();
   runApp(MyApp(initialThemeMode: initialThemeMode));
 }
