@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import '../models/course.dart';
+import '../models/semester_settings.dart';
+import '../services/settings_service.dart';
 import '../utils/course_colors.dart';
 import '../widgets/course_detail_dialog.dart';
+import 'semester_settings_page.dart';
 
 /// 课程表主页面
 class CourseTablePage extends StatefulWidget {
@@ -12,11 +15,12 @@ class CourseTablePage extends StatefulWidget {
 }
 
 class _CourseTablePageState extends State<CourseTablePage> {
-  int _currentWeek = 5; // 当前显示的周次
+  int _currentWeek = 1; // 当前显示的周次
   late PageController _pageController;
-  final int _totalWeeks = 20; // 总周数
-  final DateTime _semesterStartDate = DateTime(2025, 9, 1); // 学期开始日期
+  late int _totalWeeks; // 总周数（从设置读取）
+  late DateTime _semesterStartDate; // 学期开始日期（从设置读取）
   final DateTime _today = DateTime.now(); // 今天的日期
+  bool _isLoadingSettings = true; // 是否正在加载设置
 
   // 示例课程数据
   late final List<Course> _courses = _initCourses();
@@ -24,11 +28,40 @@ class _CourseTablePageState extends State<CourseTablePage> {
   @override
   void initState() {
     super.initState();
+    _loadSettingsAndInitialize();
+  }
+
+  /// 加载设置并初始化
+  Future<void> _loadSettingsAndInitialize() async {
+    final settings = await SettingsService.loadSemesterSettings();
+    setState(() {
+      _semesterStartDate = settings.startDate;
+      _totalWeeks = settings.totalWeeks;
+      _isLoadingSettings = false;
+    });
+
     // 计算今天所在的实际周次
     final actualWeek = _calculateWeekNumber(_today);
     _currentWeek = actualWeek;
     // 初始化 PageController，初始页面为今天所在周
     _pageController = PageController(initialPage: _currentWeek - 1);
+  }
+
+  /// 重新加载设置（从设置页面返回时调用）
+  Future<void> _reloadSettings() async {
+    final settings = await SettingsService.loadSemesterSettings();
+    setState(() {
+      _semesterStartDate = settings.startDate;
+      _totalWeeks = settings.totalWeeks;
+    });
+
+    // 重新计算当前周次
+    final actualWeek = _calculateWeekNumber(_today);
+    if (actualWeek != _currentWeek) {
+      _currentWeek = actualWeek;
+      // 跳转到新的当前周
+      _pageController.jumpToPage(_currentWeek - 1);
+    }
   }
 
   @override
@@ -270,6 +303,16 @@ class _CourseTablePageState extends State<CourseTablePage> {
 
   @override
   Widget build(BuildContext context) {
+    // 显示加载状态
+    if (_isLoadingSettings) {
+      return const Scaffold(
+        backgroundColor: Colors.white,
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -420,7 +463,7 @@ class _CourseTablePageState extends State<CourseTablePage> {
               const SizedBox(width: 4),
               IconButton(
                 icon: const Icon(Icons.more_vert, size: 28),
-                onPressed: () {},
+                onPressed: _showMoreMenu,
                 padding: const EdgeInsets.all(8),
                 constraints: const BoxConstraints(),
               ),
@@ -442,7 +485,7 @@ class _CourseTablePageState extends State<CourseTablePage> {
           SizedBox(
             width: 36,
             child: Text(
-              '10\n月',
+              '${startOfWeek.month}\n月',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 10, color: Colors.grey[700]),
             ),
@@ -685,6 +728,49 @@ class _CourseTablePageState extends State<CourseTablePage> {
           ),
         ),
       ),
+    );
+  }
+
+  /// 显示更多菜单
+  void _showMoreMenu() {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.settings),
+                title: const Text('学期设置'),
+                onTap: () async {
+                  Navigator.pop(context); // 关闭菜单
+                  // 导航到设置页面
+                  final result = await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const SemesterSettingsPage(),
+                    ),
+                  );
+                  // 如果设置被更新，重新加载设置
+                  if (result == true) {
+                    await _reloadSettings();
+                  }
+                },
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.info_outline),
+                title: const Text('关于'),
+                onTap: () {
+                  Navigator.pop(context);
+                  // TODO: 显示关于页面
+                },
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
