@@ -2,6 +2,24 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## 变更记录 (Changelog)
+
+### 最近更新: 2025-10-16 14:50:51
+
+**v1.0.0+1 (2025-10-16)**
+- 实现自定义时间表完整功能
+  - 新增 `TimeTable` 和 `SectionTime` 数据模型
+  - 新增 `TimeTableService` 服务层
+  - 新增 `TimeTableManagementPage` 页面
+  - 新增 `TimeTableEditDialog` 组件
+  - 支持创建、编辑、删除、复制时间表
+  - 支持多时间表切换
+  - Course 模型更新为使用 TimeTable
+- 优化课程表页面加载性能（并行加载数据）
+- 废弃 `SectionTimeTable` 常量类
+
+---
+
 ## 项目概述
 
 **课程表应用 (Curriculum)** - 一个基于 Flutter 开发的跨平台智能课程管理应用,支持 Android 和 Web 平台。
@@ -11,6 +29,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 🔄 灵活的学期设置与周次管理
 - ✏️ 完整的课程 CRUD 操作
 - 🎨 智能颜色分配与高辨识度设计
+- ⏰ 自定义时间表管理 (新增)
 - 💾 本地数据持久化存储
 - 🌐 多语言支持 (中文/英文)
 
@@ -25,7 +44,62 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 整体架构
 
-### 架构图
+### 模块结构图 (Mermaid)
+
+```mermaid
+graph TD
+    Root["(根) Curriculum 课程表应用"]
+
+    Root --> Models["lib/models/ - 数据模型层"]
+    Root --> Services["lib/services/ - 服务层"]
+    Root --> Pages["lib/pages/ - 页面层"]
+    Root --> Widgets["lib/widgets/ - 组件层"]
+    Root --> Utils["lib/utils/ - 工具层"]
+    Root --> Assets["assets/ - 资源文件"]
+
+    Models --> ModelCourse["course.dart<br/>课程实体"]
+    Models --> ModelSemester["semester_settings.dart<br/>学期设置"]
+    Models --> ModelTimeTable["time_table.dart<br/>时间表模型 (新增)"]
+
+    Services --> ServiceCourse["course_service.dart<br/>课程业务逻辑"]
+    Services --> ServiceSettings["settings_service.dart<br/>学期设置服务"]
+    Services --> ServiceTimeTable["time_table_service.dart<br/>时间表服务 (新增)"]
+
+    Pages --> PageTable["course_table_page.dart<br/>主页"]
+    Pages --> PageManage["course_management_page.dart<br/>课程管理"]
+    Pages --> PageSemester["semester_settings_page.dart<br/>学期设置"]
+    Pages --> PageTimeTable["time_table_management_page.dart<br/>时间表管理 (新增)"]
+
+    Widgets --> WidgetDetail["course_detail_dialog.dart<br/>课程详情"]
+    Widgets --> WidgetEdit["course_edit_dialog.dart<br/>课程编辑"]
+    Widgets --> WidgetTimeTableEdit["time_table_edit_dialog.dart<br/>时间表编辑 (新增)"]
+
+    Utils --> UtilColors["course_colors.dart<br/>智能配色"]
+
+    Assets --> AssetCourses["courses.json<br/>默认课程数据"]
+
+    click Models "/home/parski/projects/curriculum/curriculum/lib/models/CLAUDE.md" "查看数据模型层文档"
+    click Services "/home/parski/projects/curriculum/curriculum/lib/services/CLAUDE.md" "查看服务层文档"
+    click Pages "/home/parski/projects/curriculum/curriculum/lib/pages/CLAUDE.md" "查看页面层文档"
+    click Widgets "/home/parski/projects/curriculum/curriculum/lib/widgets/CLAUDE.md" "查看组件层文档"
+    click Utils "/home/parski/projects/curriculum/curriculum/lib/utils/CLAUDE.md" "查看工具层文档"
+
+    classDef modelStyle fill:#FF6F00,stroke:#E65100,color:#fff
+    classDef serviceStyle fill:#00897B,stroke:#00695C,color:#fff
+    classDef pageStyle fill:#6BA3FF,stroke:#1976D2,color:#fff
+    classDef widgetStyle fill:#8E24AA,stroke:#6A1B9A,color:#fff
+    classDef utilStyle fill:#43A047,stroke:#2E7D32,color:#fff
+    classDef assetStyle fill:#757575,stroke:#424242,color:#fff
+
+    class Models,ModelCourse,ModelSemester,ModelTimeTable modelStyle
+    class Services,ServiceCourse,ServiceSettings,ServiceTimeTable serviceStyle
+    class Pages,PageTable,PageManage,PageSemester,PageTimeTable pageStyle
+    class Widgets,WidgetDetail,WidgetEdit,WidgetTimeTableEdit widgetStyle
+    class Utils,UtilColors utilStyle
+    class Assets,AssetCourses assetStyle
+```
+
+### 架构图 (分层视图)
 
 ```mermaid
 graph TB
@@ -35,6 +109,8 @@ graph TB
         B --> D[SemesterSettingsPage]
         B --> E1[CourseDetailDialog]
         C --> E2[CourseEditDialog]
+        B --> D2[TimeTableManagementPage]
+        D2 --> E3[TimeTableEditDialog]
     end
 
     subgraph "服务层 (Services)"
@@ -43,35 +119,45 @@ graph TB
         F --> F3[冲突检测]
         G[SettingsService] --> G1[学期配置]
         G --> G2[本地存储]
+        H[TimeTableService] --> H1[时间表 CRUD]
+        H --> H2[时间表切换]
+        H --> H3[时间验证]
     end
 
     subgraph "数据层 (Models)"
-        H[Course] --> H1[课程实体]
-        I[SemesterSettings] --> I2[学期配置]
-        J[SectionTime] --> J1[节次时间]
+        I[Course] --> I1[课程实体]
+        J[SemesterSettings] --> J2[学期配置]
+        K[TimeTable] --> K1[时间表实体]
+        K --> K2[SectionTime]
     end
 
     subgraph "工具层 (Utils)"
-        K[CourseColorManager] --> K1[智能配色]
+        L[CourseColorManager] --> L1[智能配色]
     end
 
     subgraph "存储层 (Storage)"
-        L[SharedPreferences] --> L1[课程数据]
-        L --> L2[学期设置]
-        M[Assets] --> M1[courses.json]
+        M[SharedPreferences] --> M1[课程数据]
+        M --> M2[学期设置]
+        M --> M3[时间表列表]
+        M --> M4[激活时间表ID]
+        N[Assets] --> N1[courses.json]
     end
 
     B --> F
     B --> G
+    B --> H
     C --> F
     D --> G
-    F --> H
-    G --> I
-    B --> J
-    F --> K
+    D2 --> H
+    F --> I
+    G --> J
+    H --> K
+    B --> K
     F --> L
     F --> M
-    G --> L
+    F --> N
+    G --> M
+    H --> M
 
     classDef page fill:#6BA3FF,stroke:#1976D2,color:#fff
     classDef service fill:#00897B,stroke:#00695C,color:#fff
@@ -79,11 +165,11 @@ graph TB
     classDef util fill:#8E24AA,stroke:#6A1B9A,color:#fff
     classDef storage fill:#43A047,stroke:#2E7D32,color:#fff
 
-    class B,C,D,E1,E2 page
-    class F,G service
-    class H,I,J model
-    class K util
-    class L,M storage
+    class B,C,D,E1,E2,D2,E3 page
+    class F,G,H service
+    class I,J,K model
+    class L util
+    class M,N storage
 ```
 
 ### 分层架构说明
@@ -108,7 +194,7 @@ graph TB
 - 特点:无状态、纯函数设计
 
 **5. 存储层**
-- **SharedPreferences**: 键值对存储 (课程数据、学期设置)
+- **SharedPreferences**: 键值对存储 (课程数据、学期设置、时间表)
 - **Assets**: 只读资源 (默认课程模板)
 
 ---
@@ -119,10 +205,10 @@ graph TB
 
 | 模块路径 | 职责描述 | 关键文件 | 详细文档 |
 |---------|---------|---------|---------|
-| [lib/models/](lib/models/) | 数据模型定义 | course.dart<br>semester_settings.dart | [📄 lib/models/CLAUDE.md](lib/models/CLAUDE.md) |
-| [lib/services/](lib/services/) | 业务逻辑服务 | course_service.dart<br>settings_service.dart | [📄 lib/services/CLAUDE.md](lib/services/CLAUDE.md) |
-| [lib/pages/](lib/pages/) | 页面组件 | course_table_page.dart<br>course_management_page.dart<br>semester_settings_page.dart | [📄 lib/pages/CLAUDE.md](lib/pages/CLAUDE.md) |
-| [lib/widgets/](lib/widgets/) | 可复用组件 | course_detail_dialog.dart<br>course_edit_dialog.dart | [📄 lib/widgets/CLAUDE.md](lib/widgets/CLAUDE.md) |
+| [lib/models/](lib/models/) | 数据模型定义 | course.dart<br>semester_settings.dart<br>time_table.dart (新增) | [📄 lib/models/CLAUDE.md](lib/models/CLAUDE.md) |
+| [lib/services/](lib/services/) | 业务逻辑服务 | course_service.dart<br>settings_service.dart<br>time_table_service.dart (新增) | [📄 lib/services/CLAUDE.md](lib/services/CLAUDE.md) |
+| [lib/pages/](lib/pages/) | 页面组件 | course_table_page.dart<br>course_management_page.dart<br>semester_settings_page.dart<br>time_table_management_page.dart (新增) | [📄 lib/pages/CLAUDE.md](lib/pages/CLAUDE.md) |
+| [lib/widgets/](lib/widgets/) | 可复用组件 | course_detail_dialog.dart<br>course_edit_dialog.dart<br>time_table_edit_dialog.dart (新增) | [📄 lib/widgets/CLAUDE.md](lib/widgets/CLAUDE.md) |
 | [lib/utils/](lib/utils/) | 工具函数 | course_colors.dart | [📄 lib/utils/CLAUDE.md](lib/utils/CLAUDE.md) |
 
 ### 🔗 模块依赖关系
@@ -360,6 +446,8 @@ await prefs.setString('courses', data); // key 应该是常量
 **存储键规范:**
 - `saved_courses`: 课程数据 (JSON 字符串)
 - `semester_settings`: 学期设置 (JSON 字符串)
+- `time_tables`: 时间表列表 (JSON 字符串) - 新增
+- `active_time_table_id`: 当前激活的时间表ID (字符串) - 新增
 
 ### JSON 序列化规范
 
@@ -458,6 +546,21 @@ ListView(
 )
 ```
 
+**4. 并行加载多个异步资源:**
+```dart
+// ✅ 正确:并行加载
+final results = await Future.wait([
+  SettingsService.loadSemesterSettings(),
+  CourseService.loadCourses(),
+  TimeTableService.getActiveTimeTable(),
+]);
+
+// ❌ 错误:串行加载
+final settings = await SettingsService.loadSemesterSettings();
+final courses = await CourseService.loadCourses();
+final timeTable = await TimeTableService.getActiveTimeTable();
+```
+
 ### 平台特定注意事项
 
 **Android:**
@@ -514,10 +617,11 @@ ListView(
 
 ### 周次计算算法
 ```dart
-// 位置: lib/pages/course_table_page.dart:94-99
+// 位置: lib/pages/course_table_page.dart:109-114
 int _calculateWeekNumber(DateTime date) {
   final difference = date.difference(_semesterStartDate).inDays;
   final week = (difference / 7).floor() + 1;
+  // 确保周次在有效范围内
   return week.clamp(1, _totalWeeks);
 }
 ```
@@ -544,23 +648,14 @@ static Color getColorForCourse(String courseName) {
 }
 ```
 
----
-
-## 变更记录
-
-**最近更新:** 2025-10-16 11:26:24
-
-### v1.0.0 (2025-10-16)
-- ✅ 实现完整的课程管理功能 (CRUD)
-- ✅ 实现可配置的学期设置功能
-- ✅ 优化周数切换按钮布局稳定性
-- ✅ 增大顶部功能按钮尺寸
-- ✅ 优化课程颜色辨识度 (18 色高对比度色盘)
-
-### 架构演进
-- 从单 `main.dart` 演进为分层架构
-- 引入服务层分离业务逻辑
-- 实现本地存储优先的数据加载策略
+### 时间格式验证 (新增)
+```dart
+// 位置: lib/services/time_table_service.dart:171-174
+static bool isValidTimeFormat(String time) {
+  final regex = RegExp(r'^([01]\d|2[0-3]):([0-5]\d)$');
+  return regex.hasMatch(time);
+}
+```
 
 ---
 
@@ -590,6 +685,62 @@ flutter test
 - 善用 Flutter DevTools 查看 Widget 树
 - 运行时按 `p` 查看布局边界
 - 运行时按 `P` 查看性能叠加层
+
+---
+
+## 新增功能：自定义时间表
+
+### 功能概述
+
+允许用户创建和管理多个自定义时间表，支持不同学校的节次时间配置。
+
+### 核心组件
+
+**数据模型**:
+- `TimeTable`: 时间表实体，包含 ID、名称、节次列表、创建/更新时间
+- `SectionTime`: 节次时间配置（节次编号、开始时间、结束时间）
+
+**服务层**:
+- `TimeTableService`: 时间表 CRUD、时间表切换、时间格式验证
+
+**用户界面**:
+- `TimeTableManagementPage`: 时间表列表、切换、编辑、删除
+- `TimeTableEditDialog`: 时间表编辑对话框（名称、节次时间配置）
+
+### 使用示例
+
+```dart
+// 获取当前激活的时间表
+final activeTimeTable = await TimeTableService.getActiveTimeTable();
+
+// 创建新时间表
+final newTimeTable = TimeTable(
+  id: TimeTableService.generateTimeTableId(),
+  name: '高中时间表',
+  sections: [...],
+  createdAt: DateTime.now(),
+  updatedAt: DateTime.now(),
+);
+await TimeTableService.addTimeTable(newTimeTable);
+
+// 切换时间表
+await TimeTableService.setActiveTimeTableId(newTimeTable.id);
+
+// 复制时间表
+final duplicated = await TimeTableService.duplicateTimeTable(sourceId);
+```
+
+### 与课程的集成
+
+课程模型已更新为使用 `TimeTable` 获取时间信息：
+
+```dart
+// 旧方式 (已废弃)
+final timeRange = course.timeRangeText; // 使用 SectionTimeTable 常量
+
+// 新方式 (推荐)
+final timeRange = course.getTimeRangeText(currentTimeTable);
+```
 
 ---
 

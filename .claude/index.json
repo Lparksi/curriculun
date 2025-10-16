@@ -1,12 +1,12 @@
 {
   "projectName": "curriculum",
   "description": "Flutter课程表应用 - 跨平台智能课程管理",
-  "version": "1.0.0",
-  "lastUpdated": "2025-10-16T11:26:24+08:00",
+  "version": "1.0.0+1",
+  "lastUpdated": "2025-10-16T14:50:51+08:00",
   "scanner": "init-architect",
   "coverage": {
-    "totalFiles": 11,
-    "scannedFiles": 11,
+    "totalFiles": 15,
+    "scannedFiles": 15,
     "coveragePercent": 100,
     "modules": {
       "identified": 5,
@@ -20,12 +20,19 @@
       "description": "核心数据结构定义,JSON序列化支持",
       "files": [
         "course.dart",
-        "semester_settings.dart"
+        "semester_settings.dart",
+        "time_table.dart"
       ],
       "documentation": "lib/models/CLAUDE.md",
       "dependencies": [],
       "dependents": ["services", "pages", "widgets"],
-      "keyClasses": ["Course", "SectionTime", "SectionTimeTable", "SemesterSettings"]
+      "keyClasses": ["Course", "SectionTime", "SectionTimeTable (已废弃)", "SemesterSettings", "TimeTable"],
+      "coverage": {
+        "hasInterface": true,
+        "hasTests": false,
+        "hasDataModel": true,
+        "missingItems": ["单元测试", "TimeTable 文档更新"]
+      }
     },
     {
       "path": "lib/services",
@@ -33,12 +40,19 @@
       "description": "数据处理、外部资源交互、业务逻辑封装",
       "files": [
         "course_service.dart",
-        "settings_service.dart"
+        "settings_service.dart",
+        "time_table_service.dart"
       ],
       "documentation": "lib/services/CLAUDE.md",
-      "dependencies": ["models", "utils"],
+      "dependencies": ["models", "utils", "shared_preferences"],
       "dependents": ["pages"],
-      "keyClasses": ["CourseService", "SettingsService"]
+      "keyClasses": ["CourseService", "SettingsService", "TimeTableService"],
+      "coverage": {
+        "hasInterface": true,
+        "hasTests": false,
+        "hasDataModel": false,
+        "missingItems": ["单元测试", "TimeTableService 文档更新"]
+      }
     },
     {
       "path": "lib/pages",
@@ -47,12 +61,19 @@
       "files": [
         "course_table_page.dart",
         "course_management_page.dart",
-        "semester_settings_page.dart"
+        "semester_settings_page.dart",
+        "time_table_management_page.dart"
       ],
       "documentation": "lib/pages/CLAUDE.md",
       "dependencies": ["models", "services", "widgets", "utils"],
       "dependents": [],
-      "keyClasses": ["CourseTablePage", "CourseManagementPage", "SemesterSettingsPage"]
+      "keyClasses": ["CourseTablePage", "CourseManagementPage", "SemesterSettingsPage", "TimeTableManagementPage"],
+      "coverage": {
+        "hasInterface": true,
+        "hasTests": false,
+        "hasDataModel": false,
+        "missingItems": ["Widget测试", "TimeTableManagementPage 文档更新"]
+      }
     },
     {
       "path": "lib/widgets",
@@ -60,12 +81,19 @@
       "description": "Dialog、表单等可复用UI组件",
       "files": [
         "course_detail_dialog.dart",
-        "course_edit_dialog.dart"
+        "course_edit_dialog.dart",
+        "time_table_edit_dialog.dart"
       ],
       "documentation": "lib/widgets/CLAUDE.md",
       "dependencies": ["models", "services"],
       "dependents": ["pages"],
-      "keyClasses": ["CourseDetailDialog", "CourseEditDialog"]
+      "keyClasses": ["CourseDetailDialog", "CourseEditDialog", "TimeTableEditDialog"],
+      "coverage": {
+        "hasInterface": true,
+        "hasTests": false,
+        "hasDataModel": false,
+        "missingItems": ["Widget测试", "TimeTableEditDialog 文档更新"]
+      }
     },
     {
       "path": "lib/utils",
@@ -77,7 +105,13 @@
       "documentation": "lib/utils/CLAUDE.md",
       "dependencies": [],
       "dependents": ["services"],
-      "keyClasses": ["CourseColorManager"]
+      "keyClasses": ["CourseColorManager"],
+      "coverage": {
+        "hasInterface": true,
+        "hasTests": false,
+        "hasDataModel": false,
+        "missingItems": ["单元测试"]
+      }
     }
   ],
   "architecture": {
@@ -113,12 +147,13 @@
     "智能颜色分配(18色高辨识度)",
     "本地数据持久化",
     "时间冲突检测",
-    "多语言支持(中文/英文)"
+    "多语言支持(中文/英文)",
+    "自定义时间表管理(新增)"
   ],
   "keyAlgorithms": [
     {
       "name": "周次计算",
-      "location": "lib/pages/course_table_page.dart:94-99",
+      "location": "lib/pages/course_table_page.dart:109-114",
       "complexity": "O(1)"
     },
     {
@@ -129,6 +164,11 @@
     {
       "name": "智能颜色分配",
       "location": "lib/utils/course_colors.dart:38-49",
+      "complexity": "O(1)"
+    },
+    {
+      "name": "时间格式验证",
+      "location": "lib/services/time_table_service.dart:171-174",
       "complexity": "O(1)"
     }
   ],
@@ -141,6 +181,14 @@
       "semester_settings": {
         "type": "String (JSON)",
         "description": "学期设置"
+      },
+      "time_tables": {
+        "type": "String (JSON)",
+        "description": "时间表列表"
+      },
+      "active_time_table_id": {
+        "type": "String",
+        "description": "当前激活的时间表ID"
       }
     },
     "assets": {
@@ -162,20 +210,68 @@
     "hasMermaidDiagrams": true,
     "hasBreadcrumbs": true
   },
+  "gaps": [
+    {
+      "type": "testing",
+      "severity": "high",
+      "description": "缺少所有单元测试和Widget测试",
+      "recommendation": "为 services 层和 widgets 层添加测试覆盖"
+    },
+    {
+      "type": "documentation",
+      "severity": "medium",
+      "description": "模块级文档需要更新以包含 TimeTable 相关内容",
+      "affectedFiles": [
+        "lib/models/CLAUDE.md",
+        "lib/services/CLAUDE.md",
+        "lib/pages/CLAUDE.md",
+        "lib/widgets/CLAUDE.md"
+      ],
+      "recommendation": "更新各模块文档反映新增的自定义时间表功能"
+    },
+    {
+      "type": "testing",
+      "severity": "medium",
+      "description": "test/widget_test.dart 包含示例测试代码,与实际应用不匹配",
+      "recommendation": "删除示例测试或更新为实际测试用例"
+    }
+  ],
   "nextSteps": {
+    "immediate": [
+      "更新 lib/models/CLAUDE.md 包含 TimeTable 和 SectionTime 模型文档",
+      "更新 lib/services/CLAUDE.md 包含 TimeTableService 文档",
+      "更新 lib/pages/CLAUDE.md 包含 TimeTableManagementPage 文档",
+      "更新 lib/widgets/CLAUDE.md 包含 TimeTableEditDialog 文档"
+    ],
     "recommendations": [
-      "添加单元测试覆盖核心业务逻辑",
+      "添加 TimeTableService 单元测试",
+      "添加 CourseService.hasTimeConflict() 单元测试",
+      "添加时间表时间验证的单元测试",
       "实现课程数据导入/导出功能",
-      "优化大数据量场景的性能",
-      "添加课程搜索与过滤功能",
-      "考虑引入状态管理方案(Provider/Riverpod)"
+      "优化大数据量场景的性能"
     ],
     "potentialImprovements": [
       "添加课程提醒功能",
-      "支持自定义节次时间配置",
+      "支持时间表模板库",
       "添加课程笔记功能",
       "支持多学期管理",
-      "云端同步支持"
+      "云端同步支持",
+      "支持时间表分享功能"
     ]
-  }
+  },
+  "recentChanges": [
+    {
+      "date": "2025-10-16",
+      "description": "实现自定义时间表完整功能",
+      "files": [
+        "lib/models/time_table.dart (新增)",
+        "lib/services/time_table_service.dart (新增)",
+        "lib/pages/time_table_management_page.dart (新增)",
+        "lib/widgets/time_table_edit_dialog.dart (新增)",
+        "lib/pages/course_table_page.dart (更新)",
+        "lib/models/course.dart (更新)"
+      ],
+      "impact": "用户可以创建和管理多个自定义时间表,支持不同学校的节次时间配置"
+    }
+  ]
 }
