@@ -12,6 +12,7 @@ import '../widgets/course_detail_dialog.dart';
 import 'semester_management_page.dart';
 import 'course_management_page.dart';
 import 'time_table_management_page.dart';
+import 'data_management_page.dart';
 
 /// 课程表主页面
 class CourseTablePage extends StatefulWidget {
@@ -724,27 +725,21 @@ class _CourseTablePageState extends State<CourseTablePage> {
           // 工具功能分组
           _buildDrawerSection('工具'),
           ListTile(
-            leading: Icon(Icons.file_download, color: Colors.teal[600]),
-            title: const Text('导入课程'),
-            subtitle: const Text('从文件导入课程数据'),
-            onTap: () {
+            leading: Icon(Icons.cloud_sync, color: Colors.teal[600]),
+            title: const Text('数据管理'),
+            subtitle: const Text('导入和导出课程数据'),
+            onTap: () async {
               Navigator.pop(context);
-              // TODO: 实现导入功能
-              ScaffoldMessenger.of(
+              await Navigator.push(
                 context,
-              ).showSnackBar(const SnackBar(content: Text('导入功能正在开发中...')));
-            },
-          ),
-          ListTile(
-            leading: Icon(Icons.file_upload, color: Colors.indigo[600]),
-            title: const Text('导出课程'),
-            subtitle: const Text('导出课程数据到文件'),
-            onTap: () {
-              Navigator.pop(context);
-              // TODO: 实现导出功能
-              ScaffoldMessenger.of(
-                context,
-              ).showSnackBar(const SnackBar(content: Text('导出功能正在开发中...')));
+                MaterialPageRoute(
+                  builder: (context) => const DataManagementPage(),
+                ),
+              );
+              // 导入后可能数据发生变化，重新加载
+              await _reloadSemester();
+              await _reloadCourses();
+              await _reloadTimeTable();
             },
           ),
           ListTile(
