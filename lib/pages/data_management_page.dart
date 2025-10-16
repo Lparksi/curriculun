@@ -1,8 +1,10 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:share_plus/share_plus.dart';
 import '../services/export_service.dart';
+import '../utils/web_file_utils.dart';
 
 /// 数据管理页面
 /// 提供数据导出和导入功能
@@ -183,7 +185,16 @@ class _DataManagementPageState extends State<DataManagementPage> {
             ),
             const SizedBox(height: 12),
             Text(
-              '• 导出的数据以 JSON 格式保存',
+              kIsWeb
+                  ? '• Web 端：导出将下载 JSON 文件到本地'
+                  : '• 移动端：导出将打开分享对话框',
+              style: TextStyle(color: colorScheme.onSurface),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              kIsWeb
+                  ? '• Web 端：导入需上传 JSON 配置文件'
+                  : '• 移动端：导入需选择本地 JSON 文件',
               style: TextStyle(color: colorScheme.onSurface),
             ),
             const SizedBox(height: 4),
@@ -294,12 +305,16 @@ class _DataManagementPageState extends State<DataManagementPage> {
       final timestamp = DateTime.now().toIso8601String().split('.')[0].replaceAll(':', '-');
       final fileName = '${fileNamePrefix}_$timestamp.json';
 
-      // 使用 share_plus 的文本分享功能
-      // share_plus 会自动处理跨平台的差异（包括 Web）
-      await Share.share(
-        content,
-        subject: '课程表数据导出 - $fileName',
-      );
+      if (kIsWeb) {
+        // Web 平台：触发浏览器下载
+        WebFileUtils.downloadFile(content, fileName);
+      } else {
+        // 移动/桌面平台：使用分享功能
+        await Share.share(
+          content,
+          subject: '课程表数据导出 - $fileName',
+        );
+      }
     } catch (e) {
       rethrow;
     }
@@ -312,6 +327,7 @@ class _DataManagementPageState extends State<DataManagementPage> {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['json'],
+        withData: kIsWeb, // Web 平台需要读取字节数据
       );
 
       if (result == null || result.files.isEmpty) {
@@ -321,8 +337,23 @@ class _DataManagementPageState extends State<DataManagementPage> {
       setState(() => _isLoading = true);
 
       // 读取文件内容
-      final file = File(result.files.single.path!);
-      final jsonString = await file.readAsString();
+      String jsonString;
+      if (kIsWeb) {
+        // Web 平台：从字节数组读取
+        final bytes = result.files.single.bytes;
+        if (bytes == null) {
+          throw Exception('无法读取文件内容');
+        }
+        jsonString = WebFileUtils.readFileAsString(bytes);
+      } else {
+        // 移动/桌面平台：从文件路径读取
+        final path = result.files.single.path;
+        if (path == null) {
+          throw Exception('无法获取文件路径');
+        }
+        final file = File(path);
+        jsonString = await file.readAsString();
+      }
 
       // 导入数据
       final importResult = await ExportService.importAllData(
