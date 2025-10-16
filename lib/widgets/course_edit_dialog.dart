@@ -6,12 +6,14 @@ class CourseEditDialog extends StatefulWidget {
   final Course? course; // 如果为null则是新增，否则是编辑
   final int? courseIndex; // 课程在列表中的索引
   final List<Course> allCourses; // 用于时间冲突检测
+  final String? semesterId; // 学期ID（新增课程时使用）
 
   const CourseEditDialog({
     super.key,
     this.course,
     this.courseIndex,
     required this.allCourses,
+    this.semesterId,
   });
 
   @override
@@ -70,6 +72,8 @@ class _CourseEditDialogState extends State<CourseEditDialog> {
         color: _color,
         startWeek: _startWeek,
         endWeek: _endWeek,
+        semesterId:
+            widget.course?.semesterId ?? widget.semesterId, // 保持原学期ID或使用新的学期ID
       );
 
       Navigator.pop(context, course);
@@ -144,9 +148,9 @@ class _CourseEditDialogState extends State<CourseEditDialog> {
                   Text(
                     isEditing ? '编辑课程' : '新增课程',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          color: colorScheme.onPrimaryContainer,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      color: colorScheme.onPrimaryContainer,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const Spacer(),
                   IconButton(
@@ -367,10 +371,7 @@ class _CourseEditDialogState extends State<CourseEditDialog> {
                     child: const Text('取消'),
                   ),
                   const SizedBox(width: 12),
-                  FilledButton(
-                    onPressed: _saveCourse,
-                    child: const Text('保存'),
-                  ),
+                  FilledButton(onPressed: _saveCourse, child: const Text('保存')),
                 ],
               ),
             ),
@@ -431,10 +432,7 @@ class _CourseEditDialogState extends State<CourseEditDialog> {
           children: [
             const Icon(Icons.palette, size: 20),
             const SizedBox(width: 8),
-            Text(
-              '课程颜色',
-              style: Theme.of(context).textTheme.titleSmall,
-            ),
+            Text('课程颜色', style: Theme.of(context).textTheme.titleSmall),
           ],
         ),
         const SizedBox(height: 12),
@@ -473,11 +471,7 @@ class _CourseEditDialogState extends State<CourseEditDialog> {
                       : null,
                 ),
                 child: isSelected
-                    ? const Icon(
-                        Icons.check,
-                        color: Colors.white,
-                        size: 24,
-                      )
+                    ? const Icon(Icons.check, color: Colors.white, size: 24)
                     : null,
               ),
             );

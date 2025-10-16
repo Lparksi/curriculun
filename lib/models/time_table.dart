@@ -1,8 +1,8 @@
 /// 节次时间数据模型
 class SectionTime {
-  final int section;        // 节次编号 (1-10)
-  final String startTime;   // 开始时间 (HH:mm)
-  final String endTime;     // 结束时间 (HH:mm)
+  final int section; // 节次编号 (1-10)
+  final String startTime; // 开始时间 (HH:mm)
+  final String endTime; // 结束时间 (HH:mm)
 
   const SectionTime({
     required this.section,
@@ -21,22 +21,14 @@ class SectionTime {
 
   /// 转换为 JSON
   Map<String, dynamic> toJson() {
-    return {
-      'section': section,
-      'startTime': startTime,
-      'endTime': endTime,
-    };
+    return {'section': section, 'startTime': startTime, 'endTime': endTime};
   }
 
   /// 获取时间范围文本 (用于 UI 显示)
   String get timeRange => '$startTime\n$endTime';
 
   /// 复制并修改
-  SectionTime copyWith({
-    int? section,
-    String? startTime,
-    String? endTime,
-  }) {
+  SectionTime copyWith({int? section, String? startTime, String? endTime}) {
     return SectionTime(
       section: section ?? this.section,
       startTime: startTime ?? this.startTime,
@@ -59,11 +51,11 @@ class SectionTime {
 
 /// 时间表数据模型
 class TimeTable {
-  final String id;                    // 时间表唯一标识
-  final String name;                  // 时间表名称
-  final List<SectionTime> sections;   // 节次时间列表
-  final DateTime createdAt;           // 创建时间
-  final DateTime updatedAt;           // 更新时间
+  final String id; // 时间表唯一标识
+  final String name; // 时间表名称
+  final List<SectionTime> sections; // 节次时间列表
+  final DateTime createdAt; // 创建时间
+  final DateTime updatedAt; // 更新时间
 
   const TimeTable({
     required this.id,
@@ -167,13 +159,8 @@ class TimeTable {
   }
 
   @override
-  int get hashCode => Object.hash(
-        id,
-        name,
-        Object.hashAll(sections),
-        createdAt,
-        updatedAt,
-      );
+  int get hashCode =>
+      Object.hash(id, name, Object.hashAll(sections), createdAt, updatedAt);
 
   /// 列表相等性比较辅助方法
   static bool _listEquals<T>(List<T> a, List<T> b) {

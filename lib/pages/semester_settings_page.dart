@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../models/semester_settings.dart';
 import '../services/settings_service.dart';
 
 /// 学期设置页面
@@ -33,21 +32,22 @@ class _SemesterSettingsPageState extends State<SemesterSettingsPage> {
 
   /// 保存设置
   Future<void> _saveSettings() async {
-    final settings = SemesterSettings(
+    // 获取当前激活的学期
+    final currentSemester = await SettingsService.getActiveSemester();
+
+    // 更新学期设置
+    final updatedSemester = currentSemester.copyWith(
       startDate: _startDate,
       totalWeeks: _totalWeeks,
     );
 
-    await SettingsService.saveSemesterSettings(settings);
+    await SettingsService.updateSemester(updatedSemester);
 
     if (!mounted) return;
 
     // 显示保存成功提示
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('设置已保存'),
-        duration: Duration(seconds: 2),
-      ),
+      const SnackBar(content: Text('设置已保存'), duration: Duration(seconds: 2)),
     );
 
     // 返回上一页，并传递true表示设置已更新
@@ -91,10 +91,9 @@ class _SemesterSettingsPageState extends State<SemesterSettingsPage> {
     );
 
     if (confirmed == true) {
-      final defaultSettings = SemesterSettings.defaultSettings();
       setState(() {
-        _startDate = defaultSettings.startDate;
-        _totalWeeks = defaultSettings.totalWeeks;
+        _startDate = DateTime(2025, 9, 1);
+        _totalWeeks = 20;
       });
     }
   }
@@ -102,11 +101,7 @@ class _SemesterSettingsPageState extends State<SemesterSettingsPage> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     return Scaffold(
@@ -115,10 +110,7 @@ class _SemesterSettingsPageState extends State<SemesterSettingsPage> {
         actions: [
           TextButton(
             onPressed: _resetToDefault,
-            child: const Text(
-              '恢复默认',
-              style: TextStyle(color: Colors.white),
-            ),
+            child: const Text('恢复默认', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -132,7 +124,10 @@ class _SemesterSettingsPageState extends State<SemesterSettingsPage> {
               title: const Text('学期开始日期'),
               subtitle: Text(
                 '${_startDate.year}年${_startDate.month}月${_startDate.day}日',
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
               trailing: const Icon(Icons.chevron_right),
               onTap: _selectStartDate,
@@ -152,10 +147,7 @@ class _SemesterSettingsPageState extends State<SemesterSettingsPage> {
                     children: [
                       const Icon(Icons.event_note),
                       const SizedBox(width: 16),
-                      const Text(
-                        '学期总周数',
-                        style: TextStyle(fontSize: 16),
-                      ),
+                      const Text('学期总周数', style: TextStyle(fontSize: 16)),
                     ],
                   ),
                   const SizedBox(height: 16),

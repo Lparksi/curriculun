@@ -34,13 +34,10 @@ class MyApp extends StatelessWidget {
       ],
       locale: const Locale('zh', 'CN'), // 默认使用中文
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF6BA3FF),
-        ),
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF6BA3FF)),
         useMaterial3: true,
       ),
       home: const CourseTablePage(),
     );
   }
 }
-

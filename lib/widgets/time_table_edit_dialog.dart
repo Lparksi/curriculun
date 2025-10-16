@@ -6,10 +6,7 @@ import '../services/time_table_service.dart';
 class TimeTableEditDialog extends StatefulWidget {
   final TimeTable? timeTable; // null 表示新建,非 null 表示编辑
 
-  const TimeTableEditDialog({
-    super.key,
-    this.timeTable,
-  });
+  const TimeTableEditDialog({super.key, this.timeTable});
 
   @override
   State<TimeTableEditDialog> createState() => _TimeTableEditDialogState();
@@ -25,9 +22,7 @@ class _TimeTableEditDialogState extends State<TimeTableEditDialog> {
   @override
   void initState() {
     super.initState();
-    _nameController = TextEditingController(
-      text: widget.timeTable?.name ?? '',
-    );
+    _nameController = TextEditingController(text: widget.timeTable?.name ?? '');
 
     // 初始化节次列表
     if (widget.timeTable != null) {
@@ -56,9 +51,9 @@ class _TimeTableEditDialogState extends State<TimeTableEditDialog> {
         section.startTime,
         section.endTime,
       )) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('第${section.section}节的时间设置无效')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('第${section.section}节的时间设置无效')));
         return;
       }
     }
@@ -84,15 +79,19 @@ class _TimeTableEditDialogState extends State<TimeTableEditDialog> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('保存失败: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('保存失败: $e')));
       }
     }
   }
 
   /// 显示时间选择器
-  Future<void> _selectTime(BuildContext context, int index, bool isStartTime) async {
+  Future<void> _selectTime(
+    BuildContext context,
+    int index,
+    bool isStartTime,
+  ) async {
     final section = _sections[index];
     final currentTime = isStartTime ? section.startTime : section.endTime;
 
@@ -113,7 +112,8 @@ class _TimeTableEditDialogState extends State<TimeTableEditDialog> {
     );
 
     if (picked != null) {
-      final timeString = '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
+      final timeString =
+          '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
 
       setState(() {
         if (isStartTime) {
@@ -133,20 +133,22 @@ class _TimeTableEditDialogState extends State<TimeTableEditDialog> {
       final lastSection = _sections.isNotEmpty ? _sections.last : null;
       final defaultStartTime = lastSection?.endTime ?? '08:00';
 
-      _sections.add(SectionTime(
-        section: newSectionNumber,
-        startTime: defaultStartTime,
-        endTime: _calculateEndTime(defaultStartTime, 45), // 默认45分钟
-      ));
+      _sections.add(
+        SectionTime(
+          section: newSectionNumber,
+          startTime: defaultStartTime,
+          endTime: _calculateEndTime(defaultStartTime, 45), // 默认45分钟
+        ),
+      );
     });
   }
 
   /// 删除节次
   void _removeSection(int index) {
     if (_sections.length <= 1) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('至少需要保留一个节次')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('至少需要保留一个节次')));
       return;
     }
 
@@ -247,10 +249,7 @@ class _TimeTableEditDialogState extends State<TimeTableEditDialog> {
               color: Colors.red[400],
               tooltip: '删除节次',
               onPressed: () => _removeSection(index),
-              constraints: const BoxConstraints(
-                minWidth: 36,
-                minHeight: 36,
-              ),
+              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
               padding: EdgeInsets.zero,
             ),
           ],
@@ -311,18 +310,12 @@ class _TimeTableEditDialogState extends State<TimeTableEditDialog> {
                   // 说明文字
                   const Text(
                     '节次时间设置',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     '点击时间字段打开时间选择器 (24小时制)',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[600],
-                    ),
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                   ),
                 ],
               ),
@@ -341,7 +334,11 @@ class _TimeTableEditDialogState extends State<TimeTableEditDialog> {
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.info_outline, size: 16, color: Colors.grey[600]),
+                        Icon(
+                          Icons.info_outline,
+                          size: 16,
+                          color: Colors.grey[600],
+                        ),
                         const SizedBox(width: 8),
                         Text(
                           '共 ${_sections.length} 节课',

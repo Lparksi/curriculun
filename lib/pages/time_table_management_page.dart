@@ -39,9 +39,9 @@ class _TimeTableManagementPageState extends State<TimeTableManagementPage> {
     } catch (e) {
       setState(() => _isLoading = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('加载失败: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('加载失败: $e')));
       }
     }
   }
@@ -56,9 +56,9 @@ class _TimeTableManagementPageState extends State<TimeTableManagementPage> {
     if (result == true) {
       await _loadData();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('创建成功')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('创建成功')));
       }
     }
   }
@@ -73,9 +73,9 @@ class _TimeTableManagementPageState extends State<TimeTableManagementPage> {
     if (result == true) {
       await _loadData();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('保存成功')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('保存成功')));
       }
     }
   }
@@ -107,15 +107,15 @@ class _TimeTableManagementPageState extends State<TimeTableManagementPage> {
       await TimeTableService.deleteTimeTable(timeTable.id);
       await _loadData();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('删除成功')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('删除成功')));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('删除失败: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('删除失败: $e')));
       }
     }
   }
@@ -126,15 +126,15 @@ class _TimeTableManagementPageState extends State<TimeTableManagementPage> {
       await TimeTableService.duplicateTimeTable(timeTable.id);
       await _loadData();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('复制成功')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('复制成功')));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('复制失败: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('复制失败: $e')));
       }
     }
   }
@@ -145,15 +145,15 @@ class _TimeTableManagementPageState extends State<TimeTableManagementPage> {
       await TimeTableService.setActiveTimeTableId(id);
       setState(() => _activeTimeTableId = id);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('切换成功')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('切换成功')));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('切换失败: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('切换失败: $e')));
       }
     }
   }
@@ -288,10 +288,7 @@ class _TimeTableManagementPageState extends State<TimeTableManagementPage> {
                   padding: const EdgeInsets.symmetric(vertical: 2),
                   child: Text(
                     '第${section.section}节: ${section.startTime} - ${section.endTime}',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[700],
-                    ),
+                    style: TextStyle(fontSize: 12, color: Colors.grey[700]),
                   ),
                 );
               }),
@@ -321,10 +318,7 @@ class _TimeTableManagementPageState extends State<TimeTableManagementPage> {
       children: [
         Icon(icon, size: 14, color: Colors.grey[600]),
         const SizedBox(width: 4),
-        Text(
-          label,
-          style: TextStyle(fontSize: 12, color: Colors.grey[700]),
-        ),
+        Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[700])),
       ],
     );
   }
@@ -367,8 +361,9 @@ class _TimeTableManagementPageState extends State<TimeTableManagementPage> {
                           child: Text(
                             timeTable.name,
                             style: TextStyle(
-                              fontWeight:
-                                  isActive ? FontWeight.bold : FontWeight.normal,
+                              fontWeight: isActive
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
                               color: isActive
                                   ? Theme.of(context).colorScheme.primary
                                   : null,
@@ -407,32 +402,29 @@ class _TimeTableManagementPageState extends State<TimeTableManagementPage> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _timeTables.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.schedule_outlined,
-                        size: 64,
-                        color: Colors.grey[400],
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        '暂无时间表',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                    ],
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.schedule_outlined,
+                    size: 64,
+                    color: Colors.grey[400],
                   ),
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  itemCount: _timeTables.length,
-                  itemBuilder: (context, index) =>
-                      _buildTimeTableCard(_timeTables[index]),
-                ),
+                  const SizedBox(height: 16),
+                  Text(
+                    '暂无时间表',
+                    style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+                  ),
+                ],
+              ),
+            )
+          : ListView.builder(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              itemCount: _timeTables.length,
+              itemBuilder: (context, index) =>
+                  _buildTimeTableCard(_timeTables[index]),
+            ),
       floatingActionButton: FloatingActionButton(
         onPressed: _createTimeTable,
         child: const Icon(Icons.add),

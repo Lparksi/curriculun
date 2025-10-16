@@ -147,7 +147,8 @@ class TimeTableService {
     );
 
     // 生成新 ID
-    final newId = '${sourceTable.id}_copy_${DateTime.now().millisecondsSinceEpoch}';
+    final newId =
+        '${sourceTable.id}_copy_${DateTime.now().millisecondsSinceEpoch}';
     final now = DateTime.now();
 
     final newTable = TimeTable(

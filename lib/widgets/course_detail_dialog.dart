@@ -7,10 +7,7 @@ import '../services/time_table_service.dart';
 class CourseDetailDialog extends StatefulWidget {
   final Course course;
 
-  const CourseDetailDialog({
-    super.key,
-    required this.course,
-  });
+  const CourseDetailDialog({super.key, required this.course});
 
   /// 显示课程详情对话框
   static void show(BuildContext context, Course course) {
@@ -68,9 +65,7 @@ class _CourseDetailDialogState extends State<CourseDetailDialog> {
         : '加载中...';
 
     return Dialog(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(24),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       child: Container(
         constraints: const BoxConstraints(maxWidth: 400),
         decoration: BoxDecoration(
@@ -118,7 +113,9 @@ class _CourseDetailDialogState extends State<CourseDetailDialog> {
                   _buildInfoRow(
                     icon: Icons.person_outline,
                     label: '教师',
-                    value: widget.course.teacher.isNotEmpty ? widget.course.teacher : '未指定',
+                    value: widget.course.teacher.isNotEmpty
+                        ? widget.course.teacher
+                        : '未指定',
                   ),
 
                   const SizedBox(height: 16),
@@ -126,7 +123,9 @@ class _CourseDetailDialogState extends State<CourseDetailDialog> {
                   _buildInfoRow(
                     icon: Icons.location_on_outlined,
                     label: '地点',
-                    value: widget.course.location.isNotEmpty ? widget.course.location : '未指定',
+                    value: widget.course.location.isNotEmpty
+                        ? widget.course.location
+                        : '未指定',
                   ),
 
                   const SizedBox(height: 16),
@@ -134,7 +133,8 @@ class _CourseDetailDialogState extends State<CourseDetailDialog> {
                   _buildInfoRow(
                     icon: Icons.calendar_today_outlined,
                     label: '时间',
-                    value: '${weekdayNames[widget.course.weekday]} ${widget.course.sectionRangeText}',
+                    value:
+                        '${weekdayNames[widget.course.weekday]} ${widget.course.sectionRangeText}',
                   ),
 
                   const SizedBox(height: 16),
@@ -194,11 +194,7 @@ class _CourseDetailDialogState extends State<CourseDetailDialog> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(
-          icon,
-          size: 20,
-          color: Colors.grey[600],
-        ),
+        Icon(icon, size: 20, color: Colors.grey[600]),
         const SizedBox(width: 12),
         SizedBox(
           width: 60,
