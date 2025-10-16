@@ -24,6 +24,52 @@ class Course {
     this.endWeek = 20,         // 默认第20周结束
   });
 
+  /// 从 JSON 创建 Course 对象
+  factory Course.fromJson(Map<String, dynamic> json) {
+    return Course(
+      name: json['name'] as String,
+      location: json['location'] as String? ?? '',
+      teacher: json['teacher'] as String? ?? '',
+      weekday: json['weekday'] as int,
+      startSection: json['startSection'] as int,
+      duration: json['duration'] as int,
+      startWeek: json['startWeek'] as int? ?? 1,
+      endWeek: json['endWeek'] as int? ?? 20,
+      color: colorFromHex(json['color'] as String?),
+    );
+  }
+
+  /// 转换为 JSON
+  Map<String, dynamic> toJson() {
+    return {
+      'name': name,
+      'location': location,
+      'teacher': teacher,
+      'weekday': weekday,
+      'startSection': startSection,
+      'duration': duration,
+      'startWeek': startWeek,
+      'endWeek': endWeek,
+      'color': colorToHex(color),
+    };
+  }
+
+  /// 将十六进制颜色字符串转换为 Color
+  static Color colorFromHex(String? hexString) {
+    if (hexString == null || hexString.isEmpty) {
+      return Colors.blue; // 默认颜色
+    }
+    final buffer = StringBuffer();
+    if (hexString.length == 6 || hexString.length == 7) buffer.write('ff');
+    buffer.write(hexString.replaceFirst('#', ''));
+    return Color(int.parse(buffer.toString(), radix: 16));
+  }
+
+  /// 将 Color 转换为十六进制字符串
+  static String colorToHex(Color color) {
+    return '#${color.toARGB32().toRadixString(16).substring(2).toUpperCase()}';
+  }
+
   /// 结束节次
   int get endSection => startSection + duration - 1;
 

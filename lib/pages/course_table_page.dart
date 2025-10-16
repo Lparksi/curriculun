@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import '../models/course.dart';
 import '../models/semester_settings.dart';
 import '../services/settings_service.dart';
-import '../utils/course_colors.dart';
+import '../services/course_service.dart';
 import '../widgets/course_detail_dialog.dart';
 import 'semester_settings_page.dart';
+import 'course_management_page.dart';
 
 /// 课程表主页面
 class CourseTablePage extends StatefulWidget {
@@ -21,9 +22,7 @@ class _CourseTablePageState extends State<CourseTablePage> {
   late DateTime _semesterStartDate; // 学期开始日期（从设置读取）
   final DateTime _today = DateTime.now(); // 今天的日期
   bool _isLoadingSettings = true; // 是否正在加载设置
-
-  // 示例课程数据
-  late final List<Course> _courses = _initCourses();
+  List<Course> _courses = []; // 课程数据列表
 
   @override
   void initState() {
@@ -33,18 +32,31 @@ class _CourseTablePageState extends State<CourseTablePage> {
 
   /// 加载设置并初始化
   Future<void> _loadSettingsAndInitialize() async {
-    final settings = await SettingsService.loadSemesterSettings();
-    setState(() {
-      _semesterStartDate = settings.startDate;
-      _totalWeeks = settings.totalWeeks;
-      _isLoadingSettings = false;
-    });
+    // 并行加载设置和课程数据
+    final results = await Future.wait([
+      SettingsService.loadSemesterSettings(),
+      CourseService.loadCourses(), // 使用新的loadCourses方法
+    ]);
+
+    final settings = results[0] as SemesterSettings;
+    final courses = results[1] as List<Course>;
+
+    // 先设置基础数据,用于计算当前周次
+    _semesterStartDate = settings.startDate;
+    _totalWeeks = settings.totalWeeks;
 
     // 计算今天所在的实际周次
     final actualWeek = _calculateWeekNumber(_today);
     _currentWeek = actualWeek;
+
     // 初始化 PageController，初始页面为今天所在周
     _pageController = PageController(initialPage: _currentWeek - 1);
+
+    // 最后更新状态触发重新渲染
+    setState(() {
+      _courses = courses;
+      _isLoadingSettings = false;
+    });
   }
 
   /// 重新加载设置（从设置页面返回时调用）
@@ -62,6 +74,14 @@ class _CourseTablePageState extends State<CourseTablePage> {
       // 跳转到新的当前周
       _pageController.jumpToPage(_currentWeek - 1);
     }
+  }
+
+  /// 重新加载课程（从课程管理页面返回时调用）
+  Future<void> _reloadCourses() async {
+    final courses = await CourseService.loadCourses();
+    setState(() {
+      _courses = courses;
+    });
   }
 
   @override
@@ -110,195 +130,6 @@ class _CourseTablePageState extends State<CourseTablePage> {
     return _courses.where((course) {
       return _currentWeek >= course.startWeek && _currentWeek <= course.endWeek;
     }).toList();
-  }
-
-  List<Course> _initCourses() {
-    // 先重置颜色管理器
-    CourseColorManager.reset();
-
-    return [
-      Course(
-        name: '大学体育(三)',
-        location: '篮球场(文明)',
-        teacher: '王银晖',
-        weekday: 1,
-        startSection: 1,
-        duration: 2,
-        startWeek: 1,
-        endWeek: 16,
-        color: CourseColorManager.getColorForCourse('大学体育(三)'),
-      ),
-      Course(
-        name: '大学英语(三)',
-        location: '科技馆213',
-        teacher: '秦清玲',
-        weekday: 2,
-        startSection: 1,
-        duration: 2,
-        startWeek: 1,
-        endWeek: 18,
-        color: CourseColorManager.getColorForCourse('大学英语(三)'),
-      ),
-      Course(
-        name: '大学物理',
-        location: '教学楼210',
-        teacher: '牛富全',
-        weekday: 3,
-        startSection: 1,
-        duration: 2,
-        startWeek: 1,
-        endWeek: 16,
-        color: CourseColorManager.getColorForCourse('大学物理'),
-      ),
-      Course(
-        name: '计算机系统基础',
-        location: '教学楼102',
-        teacher: '王丁磊',
-        weekday: 4,
-        startSection: 1,
-        duration: 2,
-        startWeek: 1,
-        endWeek: 18,
-        color: CourseColorManager.getColorForCourse('计算机系统基础'),
-      ),
-      Course(
-        name: '概率论与数理统计',
-        location: '科技馆101',
-        teacher: '何朝兵',
-        weekday: 5,
-        startSection: 1,
-        duration: 2,
-        startWeek: 3,
-        endWeek: 18,
-        color: CourseColorManager.getColorForCourse('概率论与数理统计'),
-      ),
-      Course(
-        name: '多媒体人机交互设计与实践',
-        location: '科技馆214',
-        teacher: '吕鑫',
-        weekday: 2,
-        startSection: 3,
-        duration: 2,
-        color: CourseColorManager.getColorForCourse('多媒体人机交互设计与实践'),
-      ),
-      Course(
-        name: '多媒体人机交互设计与实践',
-        location: '教学楼405机房',
-        teacher: '吕鑫',
-        weekday: 3,
-        startSection: 3,
-        duration: 2,
-        color: CourseColorManager.getColorForCourse('多媒体人机交互设计与实践'),
-      ),
-      Course(
-        name: '大学英语(三)',
-        location: '科技馆101',
-        teacher: '秦清玲',
-        weekday: 4,
-        startSection: 3,
-        duration: 2,
-        color: CourseColorManager.getColorForCourse('大学英语(三)'),
-      ),
-      Course(
-        name: '专业英语',
-        location: '科技馆214',
-        teacher: '黄永灿',
-        weekday: 5,
-        startSection: 3,
-        duration: 2,
-        color: CourseColorManager.getColorForCourse('专业英语'),
-      ),
-      Course(
-        name: '高等数学',
-        location: '教学楼310',
-        teacher: '刘跃军',
-        weekday: 1,
-        startSection: 5,
-        duration: 2,
-        color: CourseColorManager.getColorForCourse('高等数学'),
-      ),
-      Course(
-        name: '大学语文',
-        location: '科技馆315',
-        teacher: '聂晓萌',
-        weekday: 2,
-        startSection: 5,
-        duration: 2,
-        color: CourseColorManager.getColorForCourse('大学语文'),
-      ),
-      Course(
-        name: '马克思主义基本原理',
-        location: '科技馆215',
-        teacher: '木忆文',
-        weekday: 3,
-        startSection: 5,
-        duration: 2,
-        color: CourseColorManager.getColorForCourse('马克思主义基本原理'),
-      ),
-      Course(
-        name: '概率论与数理统计',
-        location: '科技馆213',
-        teacher: '何朝兵',
-        weekday: 4,
-        startSection: 5,
-        duration: 2,
-        color: CourseColorManager.getColorForCourse('概率论与数理统计'),
-      ),
-      Course(
-        name: '大学物理',
-        location: '教学楼210',
-        teacher: '牛富全',
-        weekday: 1,
-        startSection: 7,
-        duration: 2,
-        color: CourseColorManager.getColorForCourse('大学物理'),
-      ),
-      Course(
-        name: '面向对象程序设计',
-        location: '科技馆214',
-        teacher: '郭磊',
-        weekday: 2,
-        startSection: 7,
-        duration: 2,
-        color: CourseColorManager.getColorForCourse('面向对象程序设计'),
-      ),
-      Course(
-        name: '离散数学',
-        location: '教学楼310',
-        teacher: '刘跃军',
-        weekday: 3,
-        startSection: 7,
-        duration: 2,
-        color: CourseColorManager.getColorForCourse('离散数学'),
-      ),
-      Course(
-        name: '大学物理',
-        location: '大学物理实验室2',
-        teacher: '',
-        weekday: 1,
-        startSection: 9,
-        duration: 2,
-        color: CourseColorManager.getColorForCourse('大学物理'),
-      ),
-      Course(
-        name: '计算机系统基础',
-        location: '教学楼102',
-        teacher: '',
-        weekday: 2,
-        startSection: 9,
-        duration: 2,
-        color: CourseColorManager.getColorForCourse('计算机系统基础'),
-      ),
-      Course(
-        name: '面向对象程序设计',
-        location: '科技馆214',
-        teacher: '',
-        weekday: 3,
-        startSection: 9,
-        duration: 2,
-        color: CourseColorManager.getColorForCourse('面向对象程序设计'),
-      ),
-    ];
   }
 
   @override
@@ -740,6 +571,23 @@ class _CourseTablePageState extends State<CourseTablePage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              ListTile(
+                leading: const Icon(Icons.school),
+                title: const Text('课程管理'),
+                onTap: () async {
+                  Navigator.pop(context); // 关闭菜单
+                  // 导航到课程管理页面
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const CourseManagementPage(),
+                    ),
+                  );
+                  // 返回时重新加载课程
+                  await _reloadCourses();
+                },
+              ),
+              const Divider(height: 1),
               ListTile(
                 leading: const Icon(Icons.settings),
                 title: const Text('学期设置'),
