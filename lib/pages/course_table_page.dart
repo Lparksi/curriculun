@@ -319,71 +319,79 @@ class _CourseTablePageState extends State<CourseTablePage> {
                 ),
               ),
               const SizedBox(height: 4),
-              Row(
-                children: [
-                  // 上一周按钮
-                  InkWell(
-                    onTap: _currentWeek > 1
-                        ? () {
-                            _pageController.previousPage(
-                              duration: const Duration(milliseconds: 300),
-                              curve: Curves.easeInOut,
-                            );
-                          }
-                        : null,
-                    child: Container(
-                      padding: const EdgeInsets.all(2),
-                      child: Icon(
-                        Icons.chevron_left,
-                        size: 18,
-                        color: _currentWeek > 1 ? Colors.grey[700] : Colors.grey[300],
+              SizedBox(
+                width: 140, // 固定宽度确保居中
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // 上一周按钮
+                    InkWell(
+                      onTap: _currentWeek > 1
+                          ? () {
+                              _pageController.previousPage(
+                                duration: const Duration(milliseconds: 300),
+                                curve: Curves.easeInOut,
+                              );
+                            }
+                          : null,
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        child: Icon(
+                          Icons.chevron_left,
+                          size: 18,
+                          color: _currentWeek > 1 ? Colors.grey[700] : Colors.grey[300],
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 4),
-                  GestureDetector(
-                    onTap: _jumpToCurrentWeek,
-                    child: Row(
-                      children: [
-                        Text(
-                          '第 $_currentWeek 周',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[600],
+                    // 周数显示区域 - 固定宽度
+                    SizedBox(
+                      width: 80,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            '第 $_currentWeek 周',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                            ),
                           ),
-                        ),
-                        if (!_isViewingCurrentWeek) ...[
                           const SizedBox(width: 4),
-                          Icon(
-                            Icons.refresh,
-                            size: 14,
-                            color: Colors.blue[600],
+                          // 刷新按钮 - 始终显示,本周时灰色且不可点击
+                          GestureDetector(
+                            onTap: _isViewingCurrentWeek ? null : _jumpToCurrentWeek,
+                            child: Icon(
+                              Icons.refresh,
+                              size: 14,
+                              color: _isViewingCurrentWeek
+                                  ? Colors.grey[300]
+                                  : Colors.blue[600],
+                            ),
                           ),
                         ],
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  // 下一周按钮
-                  InkWell(
-                    onTap: _currentWeek < _totalWeeks
-                        ? () {
-                            _pageController.nextPage(
-                              duration: const Duration(milliseconds: 300),
-                              curve: Curves.easeInOut,
-                            );
-                          }
-                        : null,
-                    child: Container(
-                      padding: const EdgeInsets.all(2),
-                      child: Icon(
-                        Icons.chevron_right,
-                        size: 18,
-                        color: _currentWeek < _totalWeeks ? Colors.grey[700] : Colors.grey[300],
                       ),
                     ),
-                  ),
-                ],
+                    // 下一周按钮
+                    InkWell(
+                      onTap: _currentWeek < _totalWeeks
+                          ? () {
+                              _pageController.nextPage(
+                                duration: const Duration(milliseconds: 300),
+                                curve: Curves.easeInOut,
+                              );
+                            }
+                          : null,
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        child: Icon(
+                          Icons.chevron_right,
+                          size: 18,
+                          color: _currentWeek < _totalWeeks ? Colors.grey[700] : Colors.grey[300],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
