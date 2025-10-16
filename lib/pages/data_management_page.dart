@@ -310,9 +310,11 @@ class _DataManagementPageState extends State<DataManagementPage> {
         WebFileUtils.downloadFile(content, fileName);
       } else {
         // 移动/桌面平台：使用分享功能
-        await Share.share(
-          content,
-          subject: '课程表数据导出 - $fileName',
+        await SharePlus.instance.share(
+          ShareParams(
+            text: content,
+            subject: '课程表数据导出 - $fileName',
+          ),
         );
       }
     } catch (e) {

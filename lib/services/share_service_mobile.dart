@@ -23,14 +23,16 @@ Future<bool> shareImage(
 
     // 2. 使用 share_plus 分享
     final xFile = XFile(filePath);
-    await Share.shareXFiles(
-      [xFile],
-      text: shareText,
-      subject: subject,
+    final result = await SharePlus.instance.share(
+      ShareParams(
+        files: [xFile],
+        text: shareText,
+        subject: subject,
+      ),
     );
 
-    debugPrint('ShareService (Mobile): 分享成功');
-    return true;
+    debugPrint('ShareService (Mobile): 分享状态 - ${result.status}');
+    return result.status != ShareResultStatus.unavailable;
   } catch (e) {
     debugPrint('ShareService (Mobile): 分享失败 - $e');
     return false;

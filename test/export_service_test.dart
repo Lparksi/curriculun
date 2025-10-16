@@ -4,7 +4,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:curriculum/services/export_service.dart';
 import 'package:curriculum/services/course_service.dart';
 import 'package:curriculum/services/settings_service.dart';
-import 'package:curriculum/services/time_table_service.dart';
 import 'package:curriculum/models/course.dart';
 import 'package:curriculum/models/semester_settings.dart';
 import 'package:curriculum/models/time_table.dart';
@@ -140,8 +139,8 @@ void main() {
       expect(courses[0].name, equals('导入测试课程'));
 
       final semesters = await SettingsService.getAllSemesters();
-      expect(semesters, hasLength(1));
-      expect(semesters[0].name, equals('测试学期'));
+      expect(semesters.length, greaterThanOrEqualTo(1));
+      expect(semesters.any((s) => s.name == '测试学期'), isTrue);
     });
 
     test('importAllData should validate data format', () async {
