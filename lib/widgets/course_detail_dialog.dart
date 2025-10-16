@@ -47,12 +47,19 @@ class _CourseDetailDialogState extends State<CourseDetailDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final surfaceContainerColor = theme.useMaterial3
+        ? colorScheme.surfaceContainerHigh
+        : colorScheme.surface;
     final weekdayNames = ['', '周一', '周二', '周三', '周四', '周五', '周六', '周日'];
 
     // 如果还在加载时间表，显示加载指示器
     if (_isLoading) {
-      return const Dialog(
-        child: Padding(
+      return Dialog(
+        backgroundColor: surfaceContainerColor,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        child: const Padding(
           padding: EdgeInsets.all(48),
           child: Center(child: CircularProgressIndicator()),
         ),
@@ -65,12 +72,14 @@ class _CourseDetailDialogState extends State<CourseDetailDialog> {
         : '加载中...';
 
     return Dialog(
+      backgroundColor: surfaceContainerColor,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       child: Container(
         constraints: const BoxConstraints(maxWidth: 400),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(24),
-          color: Colors.white,
+          color: surfaceContainerColor,
+          boxShadow: kElevationToShadow[3],
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -97,11 +106,15 @@ class _CourseDetailDialogState extends State<CourseDetailDialog> {
                       Expanded(
                         child: Text(
                           widget.course.name,
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            height: 1.2,
-                          ),
+                          style:
+                              theme.textTheme.titleLarge?.copyWith(
+                                fontWeight: FontWeight.w700,
+                              ) ??
+                              const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                height: 1.2,
+                              ),
                         ),
                       ),
                     ],
@@ -162,6 +175,7 @@ class _CourseDetailDialogState extends State<CourseDetailDialog> {
                       onPressed: () => Navigator.of(context).pop(),
                       style: FilledButton.styleFrom(
                         backgroundColor: widget.course.color,
+                        foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -194,16 +208,19 @@ class _CourseDetailDialogState extends State<CourseDetailDialog> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 20, color: Colors.grey[600]),
+        Icon(
+          icon,
+          size: 20,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
         const SizedBox(width: 12),
         SizedBox(
           width: 60,
           child: Text(
             label,
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[700],
-              fontWeight: FontWeight.w500,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ),
         ),
@@ -211,10 +228,8 @@ class _CourseDetailDialogState extends State<CourseDetailDialog> {
         Expanded(
           child: Text(
             value,
-            style: const TextStyle(
-              fontSize: 14,
-              color: Colors.black87,
-              fontWeight: FontWeight.w400,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Theme.of(context).colorScheme.onSurface,
             ),
           ),
         ),

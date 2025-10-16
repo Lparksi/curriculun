@@ -12,7 +12,14 @@ import 'time_table_management_page.dart';
 
 /// 课程表主页面
 class CourseTablePage extends StatefulWidget {
-  const CourseTablePage({super.key});
+  const CourseTablePage({
+    super.key,
+    required this.themeMode,
+    required this.onThemeModeChanged,
+  });
+
+  final ThemeMode themeMode;
+  final ValueChanged<ThemeMode> onThemeModeChanged;
 
   @override
   State<CourseTablePage> createState() => _CourseTablePageState();
@@ -162,14 +169,10 @@ class _CourseTablePageState extends State<CourseTablePage> {
   Widget build(BuildContext context) {
     // 显示加载状态
     if (_isLoadingSettings) {
-      return const Scaffold(
-        backgroundColor: Colors.white,
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     return Scaffold(
-      backgroundColor: Colors.white,
       drawer: _buildDrawer(),
       body: SafeArea(
         child: Column(
@@ -199,10 +202,17 @@ class _CourseTablePageState extends State<CourseTablePage> {
 
   /// 构建顶部日期信息
   Widget _buildHeader() {
+    final colorScheme = Theme.of(context).colorScheme;
+    final onSurface = colorScheme.onSurface;
+    final onSurfaceVariant = colorScheme.onSurfaceVariant;
+    final disabledColor = onSurface.withValues(alpha: 0.2);
+    final primaryColor = colorScheme.primary;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.start, // 垂直上对齐
         children: [
           // 汉堡菜单按钮
           Builder(
@@ -217,8 +227,10 @@ class _CourseTablePageState extends State<CourseTablePage> {
             ),
           ),
           Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min, // 最小化垂直空间
             children: [
+              // 今天日期
               GestureDetector(
                 onTap: _jumpToCurrentWeek,
                 child: Text(
@@ -227,88 +239,81 @@ class _CourseTablePageState extends State<CourseTablePage> {
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                   ),
+                  textAlign: TextAlign.left,
                 ),
               ),
               const SizedBox(height: 4),
-              SizedBox(
-                width: 140, // 固定宽度确保居中
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    // 上一周按钮
-                    InkWell(
-                      onTap: _currentWeek > 1
-                          ? () {
-                              _pageController.previousPage(
-                                duration: const Duration(milliseconds: 300),
-                                curve: Curves.easeInOut,
-                              );
-                            }
-                          : null,
-                      child: Container(
-                        padding: const EdgeInsets.all(2),
-                        child: Icon(
-                          Icons.chevron_left,
-                          size: 18,
-                          color: _currentWeek > 1
-                              ? Colors.grey[700]
-                              : Colors.grey[300],
-                        ),
+              // 周次控制栏
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // 上一周按钮
+                  InkWell(
+                    onTap: _currentWeek > 1
+                        ? () {
+                            _pageController.previousPage(
+                              duration: const Duration(milliseconds: 300),
+                              curve: Curves.easeInOut,
+                            );
+                          }
+                        : null,
+                    child: Padding(
+                      padding: const EdgeInsets.all(4),
+                      child: Icon(
+                        Icons.chevron_left,
+                        size: 20,
+                        color: _currentWeek > 1
+                            ? onSurfaceVariant
+                            : disabledColor,
                       ),
                     ),
-                    // 周数显示区域 - 固定宽度
-                    SizedBox(
-                      width: 80,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            '第 $_currentWeek 周',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          // 刷新按钮 - 始终显示,本周时灰色且不可点击
-                          GestureDetector(
-                            onTap: _isViewingCurrentWeek
-                                ? null
-                                : _jumpToCurrentWeek,
-                            child: Icon(
-                              Icons.refresh,
-                              size: 14,
-                              color: _isViewingCurrentWeek
-                                  ? Colors.grey[300]
-                                  : Colors.blue[600],
-                            ),
-                          ),
-                        ],
+                  ),
+                  // 周次显示
+                  Text(
+                    '第 $_currentWeek 周',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: onSurface,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  // 刷新按钮
+                  InkWell(
+                    onTap: _isViewingCurrentWeek ? null : _jumpToCurrentWeek,
+                    child: Padding(
+                      padding: const EdgeInsets.all(4),
+                      child: Icon(
+                        Icons.refresh,
+                        size: 16,
+                        color: _isViewingCurrentWeek
+                            ? disabledColor
+                            : primaryColor,
                       ),
                     ),
-                    // 下一周按钮
-                    InkWell(
-                      onTap: _currentWeek < _totalWeeks
-                          ? () {
-                              _pageController.nextPage(
-                                duration: const Duration(milliseconds: 300),
-                                curve: Curves.easeInOut,
-                              );
-                            }
-                          : null,
-                      child: Container(
-                        padding: const EdgeInsets.all(2),
-                        child: Icon(
-                          Icons.chevron_right,
-                          size: 18,
-                          color: _currentWeek < _totalWeeks
-                              ? Colors.grey[700]
-                              : Colors.grey[300],
-                        ),
+                  ),
+                  // 下一周按钮
+                  InkWell(
+                    onTap: _currentWeek < _totalWeeks
+                        ? () {
+                            _pageController.nextPage(
+                              duration: const Duration(milliseconds: 300),
+                              curve: Curves.easeInOut,
+                            );
+                          }
+                        : null,
+                    child: Padding(
+                      padding: const EdgeInsets.all(4),
+                      child: Icon(
+                        Icons.chevron_right,
+                        size: 20,
+                        color: _currentWeek < _totalWeeks
+                            ? onSurfaceVariant
+                            : disabledColor,
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -320,6 +325,11 @@ class _CourseTablePageState extends State<CourseTablePage> {
   /// 构建周次选择器
   Widget _buildWeekSelector() {
     final startOfWeek = _currentWeekStartDate;
+    final colorScheme = Theme.of(context).colorScheme;
+    final labelColor = colorScheme.onSurfaceVariant;
+    final primaryColor = colorScheme.primary;
+    final highlightTextColor = colorScheme.onPrimary;
+    final normalTextColor = colorScheme.onSurface;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -330,7 +340,7 @@ class _CourseTablePageState extends State<CourseTablePage> {
             child: Text(
               '${startOfWeek.month}\n月',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 10, color: Colors.grey[700]),
+              style: TextStyle(fontSize: 10, color: labelColor),
             ),
           ),
           Expanded(
@@ -347,14 +357,14 @@ class _CourseTablePageState extends State<CourseTablePage> {
                   children: [
                     Text(
                       weekdayNames[index],
-                      style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                      style: TextStyle(fontSize: 11, color: labelColor),
                     ),
                     const SizedBox(height: 2),
                     Container(
                       width: 28,
                       height: 28,
                       decoration: BoxDecoration(
-                        color: isToday ? Colors.blue : Colors.transparent,
+                        color: isToday ? primaryColor : Colors.transparent,
                         borderRadius: BorderRadius.circular(14),
                       ),
                       alignment: Alignment.center,
@@ -362,7 +372,7 @@ class _CourseTablePageState extends State<CourseTablePage> {
                         '${date.month}/${date.day}',
                         style: TextStyle(
                           fontSize: 9,
-                          color: isToday ? Colors.white : Colors.black,
+                          color: isToday ? highlightTextColor : normalTextColor,
                         ),
                       ),
                     ),
@@ -393,6 +403,10 @@ class _CourseTablePageState extends State<CourseTablePage> {
 
   /// 构建时间列
   Widget _buildTimeColumn() {
+    final colorScheme = Theme.of(context).colorScheme;
+    final dividerColor = Theme.of(context).dividerColor;
+    final mutedTextColor = colorScheme.onSurfaceVariant;
+
     return Column(
       children: _currentTimeTable.sections.map((section) {
         return Container(
@@ -400,8 +414,8 @@ class _CourseTablePageState extends State<CourseTablePage> {
           height: 85,
           decoration: BoxDecoration(
             border: Border(
-              bottom: BorderSide(color: Colors.grey[200]!),
-              right: BorderSide(color: Colors.grey[200]!),
+              bottom: BorderSide(color: dividerColor),
+              right: BorderSide(color: dividerColor),
             ),
           ),
           child: Column(
@@ -409,9 +423,10 @@ class _CourseTablePageState extends State<CourseTablePage> {
             children: [
               Text(
                 '${section.section}',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
+                  color: colorScheme.onSurface,
                 ),
               ),
               const SizedBox(height: 3),
@@ -420,7 +435,7 @@ class _CourseTablePageState extends State<CourseTablePage> {
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 10,
-                  color: Colors.grey[600],
+                  color: mutedTextColor,
                   height: 1.2,
                 ),
               ),
@@ -436,6 +451,7 @@ class _CourseTablePageState extends State<CourseTablePage> {
     const cellHeight = 85.0;
     // 使用当前周次过滤后的课程
     final visibleCourses = _currentWeekCourses;
+    final dividerColor = Theme.of(context).dividerColor;
 
     return SizedBox(
       height: _currentTimeTable.sections.length * cellHeight,
@@ -453,8 +469,8 @@ class _CourseTablePageState extends State<CourseTablePage> {
                     height: cellHeight,
                     decoration: BoxDecoration(
                       border: Border(
-                        bottom: BorderSide(color: Colors.grey[200]!),
-                        right: BorderSide(color: Colors.grey[200]!),
+                        bottom: BorderSide(color: dividerColor),
+                        right: BorderSide(color: dividerColor),
                       ),
                     ),
                   ),
@@ -584,11 +600,7 @@ class _CourseTablePageState extends State<CourseTablePage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                const Icon(
-                  Icons.calendar_today,
-                  color: Colors.white,
-                  size: 48,
-                ),
+                const Icon(Icons.calendar_today, color: Colors.white, size: 48),
                 const SizedBox(height: 16),
                 const Text(
                   '课程表',
@@ -601,10 +613,7 @@ class _CourseTablePageState extends State<CourseTablePage> {
                 const SizedBox(height: 4),
                 Text(
                   _currentSemester?.name ?? '',
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 14,
-                  ),
+                  style: const TextStyle(color: Colors.white70, fontSize: 14),
                 ),
               ],
             ),
@@ -620,7 +629,8 @@ class _CourseTablePageState extends State<CourseTablePage> {
               await Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => const CourseManagementPage(),
+                  builder: (context) =>
+                      const CourseManagementPage(autoShowAddDialog: true),
                 ),
               );
               await _reloadCourses();
@@ -686,9 +696,9 @@ class _CourseTablePageState extends State<CourseTablePage> {
             onTap: () {
               Navigator.pop(context);
               // TODO: 实现导入功能
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('导入功能正在开发中...')),
-              );
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(const SnackBar(content: Text('导入功能正在开发中...')));
             },
           ),
           ListTile(
@@ -698,9 +708,9 @@ class _CourseTablePageState extends State<CourseTablePage> {
             onTap: () {
               Navigator.pop(context);
               // TODO: 实现导出功能
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('导出功能正在开发中...')),
-              );
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(const SnackBar(content: Text('导出功能正在开发中...')));
             },
           ),
           ListTile(
@@ -710,25 +720,26 @@ class _CourseTablePageState extends State<CourseTablePage> {
             onTap: () {
               Navigator.pop(context);
               // TODO: 实现分享功能
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('分享功能正在开发中...')),
-              );
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(const SnackBar(content: Text('分享功能正在开发中...')));
             },
           ),
           const Divider(),
           // 设置和帮助分组
           _buildDrawerSection('其他'),
           ListTile(
-            leading: Icon(Icons.settings, color: Colors.grey[700]),
-            title: const Text('设置'),
-            subtitle: const Text('应用设置和偏好'),
+            leading: Icon(
+              Icons.dark_mode,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            title: const Text('主题模式'),
+            subtitle: Text('当前：${_describeThemeMode(widget.themeMode)}'),
             onTap: () {
               Navigator.pop(context);
-              // TODO: 实现设置页面
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('设置页面正在开发中...')),
-              );
+              Future.microtask(_showThemeModeSelector);
             },
+            trailing: const Icon(Icons.chevron_right),
           ),
           ListTile(
             leading: Icon(Icons.help_outline, color: Colors.amber[700]),
@@ -737,9 +748,9 @@ class _CourseTablePageState extends State<CourseTablePage> {
             onTap: () {
               Navigator.pop(context);
               // TODO: 实现帮助页面
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('帮助页面正在开发中...')),
-              );
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(const SnackBar(content: Text('帮助页面正在开发中...')));
             },
           ),
           ListTile(
@@ -756,6 +767,65 @@ class _CourseTablePageState extends State<CourseTablePage> {
     );
   }
 
+  String _describeThemeMode(ThemeMode mode) {
+    return switch (mode) {
+      ThemeMode.light => '明亮模式',
+      ThemeMode.dark => '深夜模式',
+      ThemeMode.system => '跟随系统',
+    };
+  }
+
+  Future<void> _showThemeModeSelector() async {
+    if (!mounted) {
+      return;
+    }
+
+    final options = <ThemeMode, String>{
+      ThemeMode.system: '跟随系统',
+      ThemeMode.light: '明亮模式',
+      ThemeMode.dark: '深夜模式',
+    };
+
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        void handleChange(ThemeMode mode) {
+          widget.onThemeModeChanged(mode);
+          Navigator.of(sheetContext).pop();
+        }
+
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Text(
+                  '选择主题模式',
+                  style: Theme.of(sheetContext).textTheme.titleMedium,
+                ),
+              ),
+              ...options.entries.map(
+                (entry) => ListTile(
+                  leading: Icon(
+                    widget.themeMode == entry.key
+                        ? Icons.radio_button_checked
+                        : Icons.radio_button_unchecked,
+                    color: Theme.of(sheetContext).colorScheme.primary,
+                  ),
+                  title: Text(entry.value),
+                  onTap: () => handleChange(entry.key),
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   /// 构建抽屉菜单分组标题
   Widget _buildDrawerSection(String title) {
     return Padding(
@@ -765,7 +835,7 @@ class _CourseTablePageState extends State<CourseTablePage> {
         style: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.bold,
-          color: Colors.grey[600],
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
           letterSpacing: 0.5,
         ),
       ),

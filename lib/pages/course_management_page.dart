@@ -9,7 +9,10 @@ import '../widgets/course_edit_dialog.dart';
 
 /// 课程管理页面
 class CourseManagementPage extends StatefulWidget {
-  const CourseManagementPage({super.key});
+  /// 是否自动打开新建课程对话框
+  final bool autoShowAddDialog;
+
+  const CourseManagementPage({super.key, this.autoShowAddDialog = false});
 
   @override
   State<CourseManagementPage> createState() => _CourseManagementPageState();
@@ -27,6 +30,12 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
   void initState() {
     super.initState();
     _loadCourses();
+    // 如果需要自动打开新建对话框，在加载完成后打开
+    if (widget.autoShowAddDialog) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _showEditDialog();
+      });
+    }
   }
 
   /// 加载课程列表

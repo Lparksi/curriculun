@@ -33,9 +33,15 @@ class _CourseEditDialogState extends State<CourseEditDialog> {
   late int _endWeek;
   late Color _color;
 
+  // 存储本学期所有课程名称及其对应的课程信息（教师、颜色）
+  Map<String, Course> _existingCourseMap = {};
+
   @override
   void initState() {
     super.initState();
+
+    // 提取本学期所有课程的名称和教师信息
+    _extractExistingCourses();
 
     // 初始化表单数据
     final course = widget.course;
@@ -49,6 +55,34 @@ class _CourseEditDialogState extends State<CourseEditDialog> {
     _startWeek = course?.startWeek ?? 1;
     _endWeek = course?.endWeek ?? 20;
     _color = course?.color ?? const Color(0xFFE91E63);
+  }
+
+  /// 提取本学期已存在课程的完整信息
+  void _extractExistingCourses() {
+    final courseMap = <String, Course>{};
+    for (final course in widget.allCourses) {
+      // 使用课程名称作为key，课程对象作为value
+      // 如果同名课程有多个，保留最后一个（通常是最新的）
+      courseMap[course.name] = course;
+    }
+    _existingCourseMap = courseMap;
+  }
+
+  /// 当选择已存在的课程名称时，自动填充教师信息和颜色
+  void _onCourseNameSelected(String courseName) {
+    final existingCourse = _existingCourseMap[courseName];
+    if (existingCourse == null) return;
+
+    setState(() {
+      _nameController.text = courseName;
+      // 如果教师字段为空，自动填充教师信息
+      if (_teacherController.text.isEmpty &&
+          existingCourse.teacher.isNotEmpty) {
+        _teacherController.text = existingCourse.teacher;
+      }
+      // 自动继承课程颜色
+      _color = existingCourse.color;
+    });
   }
 
   @override
@@ -169,21 +203,8 @@ class _CourseEditDialogState extends State<CourseEditDialog> {
                 child: ListView(
                   padding: const EdgeInsets.all(16),
                   children: [
-                    // 课程名称
-                    TextFormField(
-                      controller: _nameController,
-                      decoration: const InputDecoration(
-                        labelText: '课程名称',
-                        prefixIcon: Icon(Icons.book),
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return '请输入课程名称';
-                        }
-                        return null;
-                      },
-                    ),
+                    // 课程名称（支持自动完成）
+                    _buildCourseNameField(),
                     const SizedBox(height: 16),
 
                     // 上课地点
@@ -381,6 +402,60 @@ class _CourseEditDialogState extends State<CourseEditDialog> {
     );
   }
 
+  /// 构建课程名称输入框（支持自动完成）
+  Widget _buildCourseNameField() {
+    final isEditing = widget.course != null;
+    final courseNames = _existingCourseMap.keys.toList()..sort();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextFormField(
+          controller: _nameController,
+          decoration: InputDecoration(
+            labelText: '课程名称',
+            prefixIcon: const Icon(Icons.book),
+            border: const OutlineInputBorder(),
+            suffixIcon: !isEditing && courseNames.isNotEmpty
+                ? IconButton(
+                    icon: Icon(
+                      Icons.arrow_drop_down,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    tooltip: '选择已有课程',
+                    onPressed: () => _showCourseSelectionDialog(courseNames),
+                  )
+                : null,
+            helperText: !isEditing && courseNames.isNotEmpty
+                ? '点击右侧图标选择已有课程'
+                : null,
+          ),
+          validator: (value) {
+            if (value == null || value.trim().isEmpty) {
+              return '请输入课程名称';
+            }
+            return null;
+          },
+        ),
+      ],
+    );
+  }
+
+  /// 显示课程选择对话框
+  Future<void> _showCourseSelectionDialog(List<String> courseNames) async {
+    final selected = await showDialog<String>(
+      context: context,
+      builder: (context) => _CourseSelectionDialog(
+        courseNames: courseNames,
+        existingCourses: _existingCourseMap,
+      ),
+    );
+
+    if (selected != null) {
+      _onCourseNameSelected(selected);
+    }
+  }
+
   /// 构建下拉选择字段
   Widget _buildDropdownField<T>({
     required String label,
@@ -478,6 +553,192 @@ class _CourseEditDialogState extends State<CourseEditDialog> {
           }).toList(),
         ),
       ],
+    );
+  }
+}
+
+/// 课程选择对话框
+class _CourseSelectionDialog extends StatefulWidget {
+  final List<String> courseNames;
+  final Map<String, Course> existingCourses;
+
+  const _CourseSelectionDialog({
+    required this.courseNames,
+    required this.existingCourses,
+  });
+
+  @override
+  State<_CourseSelectionDialog> createState() => _CourseSelectionDialogState();
+}
+
+class _CourseSelectionDialogState extends State<_CourseSelectionDialog> {
+  late TextEditingController _searchController;
+  late List<String> _filteredCourses;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController = TextEditingController();
+    _filteredCourses = widget.courseNames;
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _filterCourses(String query) {
+    setState(() {
+      if (query.isEmpty) {
+        _filteredCourses = widget.courseNames;
+      } else {
+        _filteredCourses = widget.courseNames
+            .where((name) => name.toLowerCase().contains(query.toLowerCase()))
+            .toList();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 400, maxHeight: 500),
+        child: Column(
+          children: [
+            // 标题栏
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primaryContainer,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(28),
+                  topRight: Radius.circular(28),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.school,
+                    color: Theme.of(context).colorScheme.onPrimaryContainer,
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    '选择已有课程',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: Theme.of(context).colorScheme.onPrimaryContainer,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                    color: Theme.of(context).colorScheme.onPrimaryContainer,
+                  ),
+                ],
+              ),
+            ),
+            // 搜索框
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  labelText: '搜索课程',
+                  prefixIcon: const Icon(Icons.search),
+                  border: const OutlineInputBorder(),
+                  suffixIcon: _searchController.text.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear),
+                          onPressed: () {
+                            _searchController.clear();
+                            _filterCourses('');
+                          },
+                        )
+                      : null,
+                ),
+                onChanged: _filterCourses,
+              ),
+            ),
+            // 课程列表
+            Expanded(
+              child: _filteredCourses.isEmpty
+                  ? Center(
+                      child: Text(
+                        '未找到匹配的课程',
+                        style: TextStyle(
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onSurface.withValues(alpha: 0.6),
+                        ),
+                      ),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      itemCount: _filteredCourses.length,
+                      itemBuilder: (context, index) {
+                        final courseName = _filteredCourses[index];
+                        final course = widget.existingCourses[courseName];
+                        final teacher = course?.teacher ?? '';
+                        final color = course?.color ?? Colors.grey;
+
+                        return Card(
+                          margin: const EdgeInsets.symmetric(
+                            vertical: 4,
+                            horizontal: 8,
+                          ),
+                          child: ListTile(
+                            leading: CircleAvatar(
+                              backgroundColor: color,
+                              child: const Icon(
+                                Icons.book,
+                                color: Colors.white,
+                                size: 20,
+                              ),
+                            ),
+                            title: Text(
+                              courseName,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            subtitle: teacher.isNotEmpty
+                                ? Row(
+                                    children: [
+                                      const Icon(Icons.person, size: 14),
+                                      const SizedBox(width: 4),
+                                      Expanded(
+                                        child: Text(
+                                          '教师: $teacher',
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                  )
+                                : null,
+                            trailing: Container(
+                              width: 24,
+                              height: 24,
+                              decoration: BoxDecoration(
+                                color: color,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: Colors.grey.withValues(alpha: 0.3),
+                                  width: 1,
+                                ),
+                              ),
+                            ),
+                            onTap: () => Navigator.pop(context, courseName),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
