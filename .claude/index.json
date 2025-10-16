@@ -1,0 +1,181 @@
+{
+  "projectName": "curriculum",
+  "description": "Flutter课程表应用 - 跨平台智能课程管理",
+  "version": "1.0.0",
+  "lastUpdated": "2025-10-16T11:26:24+08:00",
+  "scanner": "init-architect",
+  "coverage": {
+    "totalFiles": 11,
+    "scannedFiles": 11,
+    "coveragePercent": 100,
+    "modules": {
+      "identified": 5,
+      "documented": 5
+    }
+  },
+  "modules": [
+    {
+      "path": "lib/models",
+      "name": "数据模型层",
+      "description": "核心数据结构定义,JSON序列化支持",
+      "files": [
+        "course.dart",
+        "semester_settings.dart"
+      ],
+      "documentation": "lib/models/CLAUDE.md",
+      "dependencies": [],
+      "dependents": ["services", "pages", "widgets"],
+      "keyClasses": ["Course", "SectionTime", "SectionTimeTable", "SemesterSettings"]
+    },
+    {
+      "path": "lib/services",
+      "name": "业务逻辑服务层",
+      "description": "数据处理、外部资源交互、业务逻辑封装",
+      "files": [
+        "course_service.dart",
+        "settings_service.dart"
+      ],
+      "documentation": "lib/services/CLAUDE.md",
+      "dependencies": ["models", "utils"],
+      "dependents": ["pages"],
+      "keyClasses": ["CourseService", "SettingsService"]
+    },
+    {
+      "path": "lib/pages",
+      "name": "页面组件层",
+      "description": "完整页面组件,页面级状态管理",
+      "files": [
+        "course_table_page.dart",
+        "course_management_page.dart",
+        "semester_settings_page.dart"
+      ],
+      "documentation": "lib/pages/CLAUDE.md",
+      "dependencies": ["models", "services", "widgets", "utils"],
+      "dependents": [],
+      "keyClasses": ["CourseTablePage", "CourseManagementPage", "SemesterSettingsPage"]
+    },
+    {
+      "path": "lib/widgets",
+      "name": "可复用组件层",
+      "description": "Dialog、表单等可复用UI组件",
+      "files": [
+        "course_detail_dialog.dart",
+        "course_edit_dialog.dart"
+      ],
+      "documentation": "lib/widgets/CLAUDE.md",
+      "dependencies": ["models", "services"],
+      "dependents": ["pages"],
+      "keyClasses": ["CourseDetailDialog", "CourseEditDialog"]
+    },
+    {
+      "path": "lib/utils",
+      "name": "工具函数层",
+      "description": "通用工具、算法、常量定义",
+      "files": [
+        "course_colors.dart"
+      ],
+      "documentation": "lib/utils/CLAUDE.md",
+      "dependencies": [],
+      "dependents": ["services"],
+      "keyClasses": ["CourseColorManager"]
+    }
+  ],
+  "architecture": {
+    "pattern": "分层架构",
+    "layers": [
+      "应用层 (pages + widgets)",
+      "服务层 (services)",
+      "数据层 (models)",
+      "工具层 (utils)",
+      "存储层 (SharedPreferences + Assets)"
+    ],
+    "stateManagement": "StatefulWidget + setState",
+    "dataFlow": "单向数据流 (上层依赖下层)"
+  },
+  "techStack": {
+    "framework": "Flutter 3.35.6",
+    "language": "Dart 3.9.2",
+    "platforms": ["Android", "Web"],
+    "dependencies": {
+      "shared_preferences": "^2.3.3",
+      "cupertino_icons": "^1.0.8",
+      "flutter_localizations": "SDK"
+    },
+    "devDependencies": {
+      "flutter_test": "SDK",
+      "flutter_lints": "^5.0.0"
+    }
+  },
+  "features": [
+    "可视化周历课程表",
+    "学期设置与周次管理",
+    "课程CRUD操作",
+    "智能颜色分配(18色高辨识度)",
+    "本地数据持久化",
+    "时间冲突检测",
+    "多语言支持(中文/英文)"
+  ],
+  "keyAlgorithms": [
+    {
+      "name": "周次计算",
+      "location": "lib/pages/course_table_page.dart:94-99",
+      "complexity": "O(1)"
+    },
+    {
+      "name": "课程时间冲突检测",
+      "location": "lib/services/course_service.dart:135-165",
+      "complexity": "O(n)"
+    },
+    {
+      "name": "智能颜色分配",
+      "location": "lib/utils/course_colors.dart:38-49",
+      "complexity": "O(1)"
+    }
+  ],
+  "storageSchema": {
+    "sharedPreferences": {
+      "saved_courses": {
+        "type": "String (JSON)",
+        "description": "课程数据列表"
+      },
+      "semester_settings": {
+        "type": "String (JSON)",
+        "description": "学期设置"
+      }
+    },
+    "assets": {
+      "courses.json": {
+        "type": "JSON",
+        "description": "默认课程数据模板(19门课程)"
+      }
+    }
+  },
+  "documentation": {
+    "root": "CLAUDE.md",
+    "modules": [
+      "lib/models/CLAUDE.md",
+      "lib/services/CLAUDE.md",
+      "lib/pages/CLAUDE.md",
+      "lib/widgets/CLAUDE.md",
+      "lib/utils/CLAUDE.md"
+    ],
+    "hasMermaidDiagrams": true,
+    "hasBreadcrumbs": true
+  },
+  "nextSteps": {
+    "recommendations": [
+      "添加单元测试覆盖核心业务逻辑",
+      "实现课程数据导入/导出功能",
+      "优化大数据量场景的性能",
+      "添加课程搜索与过滤功能",
+      "考虑引入状态管理方案(Provider/Riverpod)"
+    ],
+    "potentialImprovements": [
+      "添加课程提醒功能",
+      "支持自定义节次时间配置",
+      "添加课程笔记功能",
+      "支持多学期管理",
+      "云端同步支持"
+    ]
+  }
+}
