@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../models/course.dart';
+import '../models/time_table.dart';
 import '../services/course_service.dart';
+import '../services/time_table_service.dart';
 import '../widgets/course_edit_dialog.dart';
 
 /// 课程管理页面
@@ -13,6 +15,7 @@ class CourseManagementPage extends StatefulWidget {
 
 class _CourseManagementPageState extends State<CourseManagementPage> {
   List<Course> _courses = [];
+  late TimeTable _currentTimeTable;
   bool _isLoading = true;
   bool _isMultiSelectMode = false; // 是否处于多选模式
   final Set<int> _selectedIndices = {}; // 选中的课程索引
@@ -29,10 +32,17 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
       _isLoading = true;
     });
 
-    final courses = await CourseService.loadCourses();
+    final results = await Future.wait([
+      CourseService.loadCourses(),
+      TimeTableService.getActiveTimeTable(),
+    ]);
+
+    final courses = results[0] as List<Course>;
+    final timeTable = results[1] as TimeTable;
 
     setState(() {
       _courses = courses;
+      _currentTimeTable = timeTable;
       _isLoading = false;
     });
   }
@@ -550,7 +560,7 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                       children: [
                         // 时间信息（主标题）
                         Text(
-                          '${course.sectionRangeText} ${course.timeRangeText}',
+                          '${course.sectionRangeText} ${course.getTimeRangeText(_currentTimeTable)}',
                           style: Theme.of(context).textTheme.titleSmall?.copyWith(
                                 fontWeight: FontWeight.bold,
                               ),

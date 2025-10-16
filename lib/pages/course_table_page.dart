@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import '../models/course.dart';
 import '../models/semester_settings.dart';
+import '../models/time_table.dart';
 import '../services/settings_service.dart';
 import '../services/course_service.dart';
+import '../services/time_table_service.dart';
 import '../widgets/course_detail_dialog.dart';
 import 'semester_settings_page.dart';
 import 'course_management_page.dart';
+import 'time_table_management_page.dart';
 
 /// 课程表主页面
 class CourseTablePage extends StatefulWidget {
@@ -23,6 +26,7 @@ class _CourseTablePageState extends State<CourseTablePage> {
   final DateTime _today = DateTime.now(); // 今天的日期
   bool _isLoadingSettings = true; // 是否正在加载设置
   List<Course> _courses = []; // 课程数据列表
+  late TimeTable _currentTimeTable; // 当前使用的时间表
 
   @override
   void initState() {
@@ -32,18 +36,21 @@ class _CourseTablePageState extends State<CourseTablePage> {
 
   /// 加载设置并初始化
   Future<void> _loadSettingsAndInitialize() async {
-    // 并行加载设置和课程数据
+    // 并行加载设置、课程数据和时间表
     final results = await Future.wait([
       SettingsService.loadSemesterSettings(),
       CourseService.loadCourses(), // 使用新的loadCourses方法
+      TimeTableService.getActiveTimeTable(), // 加载当前时间表
     ]);
 
     final settings = results[0] as SemesterSettings;
     final courses = results[1] as List<Course>;
+    final timeTable = results[2] as TimeTable;
 
     // 先设置基础数据,用于计算当前周次
     _semesterStartDate = settings.startDate;
     _totalWeeks = settings.totalWeeks;
+    _currentTimeTable = timeTable;
 
     // 计算今天所在的实际周次
     final actualWeek = _calculateWeekNumber(_today);
@@ -81,6 +88,14 @@ class _CourseTablePageState extends State<CourseTablePage> {
     final courses = await CourseService.loadCourses();
     setState(() {
       _courses = courses;
+    });
+  }
+
+  /// 重新加载时间表（从时间表管理页面返回时调用）
+  Future<void> _reloadTimeTable() async {
+    final timeTable = await TimeTableService.getActiveTimeTable();
+    setState(() {
+      _currentTimeTable = timeTable;
     });
   }
 
@@ -384,7 +399,7 @@ class _CourseTablePageState extends State<CourseTablePage> {
   /// 构建时间列
   Widget _buildTimeColumn() {
     return Column(
-      children: SectionTimeTable.sections.map((section) {
+      children: _currentTimeTable.sections.map((section) {
         return Container(
           width: 50,
           height: 85,
@@ -428,13 +443,13 @@ class _CourseTablePageState extends State<CourseTablePage> {
     final visibleCourses = _currentWeekCourses;
 
     return SizedBox(
-      height: SectionTimeTable.sections.length * cellHeight,
+      height: _currentTimeTable.sections.length * cellHeight,
       child: Stack(
         children: [
           // 背景网格
           Column(
             children: List.generate(
-              SectionTimeTable.sections.length,
+              _currentTimeTable.sections.length,
               (row) => Row(
                 children: List.generate(
                   7,
@@ -585,6 +600,23 @@ class _CourseTablePageState extends State<CourseTablePage> {
                   );
                   // 返回时重新加载课程
                   await _reloadCourses();
+                },
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.schedule),
+                title: const Text('时间表管理'),
+                onTap: () async {
+                  Navigator.pop(context); // 关闭菜单
+                  // 导航到时间表管理页面
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const TimeTableManagementPage(),
+                    ),
+                  );
+                  // 返回时重新加载时间表
+                  await _reloadTimeTable();
                 },
               ),
               const Divider(height: 1),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'time_table.dart';
 
 /// 课程数据模型
 class Course {
@@ -73,10 +74,11 @@ class Course {
   /// 结束节次
   int get endSection => startSection + duration - 1;
 
-  /// 获取上课时间段文字描述
-  String get timeRangeText {
-    final start = SectionTimeTable.sections[startSection - 1];
-    final end = SectionTimeTable.sections[endSection - 1];
+  /// 获取上课时间段文字描述 (需要传入时间表)
+  String getTimeRangeText(TimeTable timeTable) {
+    final start = timeTable.getSectionTime(startSection);
+    final end = timeTable.getSectionTime(endSection);
+    if (start == null || end == null) return '';
     return '${start.startTime}-${end.endTime}';
   }
 
@@ -97,22 +99,8 @@ class Course {
   }
 }
 
-/// 节次时间配置
-class SectionTime {
-  final int section;
-  final String startTime;
-  final String endTime;
-
-  const SectionTime({
-    required this.section,
-    required this.startTime,
-    required this.endTime,
-  });
-
-  String get timeRange => '$startTime\n$endTime';
-}
-
-/// 预定义的节次时间表
+/// 预定义的节次时间表 (保持向后兼容)
+/// @deprecated 使用 TimeTable.defaultTimeTable() 替代
 class SectionTimeTable {
   static const List<SectionTime> sections = [
     SectionTime(section: 1, startTime: '08:00', endTime: '08:45'),

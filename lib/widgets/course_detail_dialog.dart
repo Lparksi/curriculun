@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import '../models/course.dart';
+import '../models/time_table.dart';
+import '../services/time_table_service.dart';
 
 /// 课程详情弹窗
-class CourseDetailDialog extends StatelessWidget {
+class CourseDetailDialog extends StatefulWidget {
   final Course course;
 
   const CourseDetailDialog({
@@ -19,8 +21,51 @@ class CourseDetailDialog extends StatelessWidget {
   }
 
   @override
+  State<CourseDetailDialog> createState() => _CourseDetailDialogState();
+}
+
+class _CourseDetailDialogState extends State<CourseDetailDialog> {
+  TimeTable? _timeTable;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTimeTable();
+  }
+
+  Future<void> _loadTimeTable() async {
+    try {
+      final timeTable = await TimeTableService.getActiveTimeTable();
+      setState(() {
+        _timeTable = timeTable;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final weekdayNames = ['', '周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+
+    // 如果还在加载时间表，显示加载指示器
+    if (_isLoading) {
+      return const Dialog(
+        child: Padding(
+          padding: EdgeInsets.all(48),
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      );
+    }
+
+    // 计算时间段文本
+    final timeRangeText = _timeTable != null
+        ? widget.course.getTimeRangeText(_timeTable!)
+        : '加载中...';
 
     return Dialog(
       shape: RoundedRectangleBorder(
@@ -49,14 +94,14 @@ class CourseDetailDialog extends StatelessWidget {
                         width: 4,
                         height: 24,
                         decoration: BoxDecoration(
-                          color: course.color,
+                          color: widget.course.color,
                           borderRadius: BorderRadius.circular(2),
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
-                          course.name,
+                          widget.course.name,
                           style: const TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
@@ -73,7 +118,7 @@ class CourseDetailDialog extends StatelessWidget {
                   _buildInfoRow(
                     icon: Icons.person_outline,
                     label: '教师',
-                    value: course.teacher.isNotEmpty ? course.teacher : '未指定',
+                    value: widget.course.teacher.isNotEmpty ? widget.course.teacher : '未指定',
                   ),
 
                   const SizedBox(height: 16),
@@ -81,7 +126,7 @@ class CourseDetailDialog extends StatelessWidget {
                   _buildInfoRow(
                     icon: Icons.location_on_outlined,
                     label: '地点',
-                    value: course.location.isNotEmpty ? course.location : '未指定',
+                    value: widget.course.location.isNotEmpty ? widget.course.location : '未指定',
                   ),
 
                   const SizedBox(height: 16),
@@ -89,7 +134,7 @@ class CourseDetailDialog extends StatelessWidget {
                   _buildInfoRow(
                     icon: Icons.calendar_today_outlined,
                     label: '时间',
-                    value: '${weekdayNames[course.weekday]} ${course.sectionRangeText}',
+                    value: '${weekdayNames[widget.course.weekday]} ${widget.course.sectionRangeText}',
                   ),
 
                   const SizedBox(height: 16),
@@ -97,7 +142,7 @@ class CourseDetailDialog extends StatelessWidget {
                   _buildInfoRow(
                     icon: Icons.access_time_outlined,
                     label: '时段',
-                    value: course.timeRangeText,
+                    value: timeRangeText,
                   ),
 
                   const SizedBox(height: 16),
@@ -105,7 +150,7 @@ class CourseDetailDialog extends StatelessWidget {
                   _buildInfoRow(
                     icon: Icons.date_range_outlined,
                     label: '周次',
-                    value: course.weekRangeText,
+                    value: widget.course.weekRangeText,
                   ),
 
                   const SizedBox(height: 24),
@@ -116,7 +161,7 @@ class CourseDetailDialog extends StatelessWidget {
                     child: FilledButton(
                       onPressed: () => Navigator.of(context).pop(),
                       style: FilledButton.styleFrom(
-                        backgroundColor: course.color,
+                        backgroundColor: widget.course.color,
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
