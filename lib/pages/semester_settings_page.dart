@@ -209,31 +209,37 @@ class _SemesterSettingsPageState extends State<SemesterSettingsPage> {
 
           // 说明文字
           Card(
-            color: Colors.blue[50],
-            child: const Padding(
-              padding: EdgeInsets.all(16),
+            color: Theme.of(context).colorScheme.primaryContainer,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.info_outline, color: Colors.blue),
-                      SizedBox(width: 8),
+                      Icon(
+                        Icons.info_outline,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      const SizedBox(width: 8),
                       Text(
                         '设置说明',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
-                          color: Colors.blue,
+                          color: Theme.of(context).colorScheme.primary,
                         ),
                       ),
                     ],
                   ),
-                  SizedBox(height: 8),
+                  const SizedBox(height: 8),
                   Text(
                     '• 学期开始日期：从这一天开始计算第1周\n'
                     '• 学期总周数：整个学期的周数（一般为16-20周）\n'
                     '• 修改设置后，课程表会自动更新周次计算',
-                    style: TextStyle(fontSize: 13, color: Colors.black87),
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Theme.of(context).colorScheme.onPrimaryContainer,
+                    ),
                   ),
                 ],
               ),
@@ -247,8 +253,6 @@ class _SemesterSettingsPageState extends State<SemesterSettingsPage> {
             onPressed: _saveSettings,
             style: ElevatedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 16),
-              backgroundColor: Colors.blue,
-              foregroundColor: Colors.white,
             ),
             child: const Text(
               '保存设置',

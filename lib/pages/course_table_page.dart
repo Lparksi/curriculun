@@ -657,7 +657,12 @@ class _CourseTablePageState extends State<CourseTablePage> {
           // 快捷操作分组
           _buildDrawerSection('快捷操作'),
           ListTile(
-            leading: Icon(Icons.add_circle, color: Colors.red[600]),
+            leading: Icon(
+              Icons.add_circle,
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.red[300]
+                  : Colors.red[600],
+            ),
             title: const Text('添加课程'),
             subtitle: const Text('快速添加新课程'),
             onTap: () async {
@@ -676,7 +681,12 @@ class _CourseTablePageState extends State<CourseTablePage> {
           // 管理功能分组
           _buildDrawerSection('管理'),
           ListTile(
-            leading: Icon(Icons.school, color: Colors.blue[600]),
+            leading: Icon(
+              Icons.school,
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.blue[300]
+                  : Colors.blue[600],
+            ),
             title: const Text('课程管理'),
             subtitle: const Text('查看和管理所有课程'),
             onTap: () async {
@@ -691,22 +701,34 @@ class _CourseTablePageState extends State<CourseTablePage> {
             },
           ),
           ListTile(
-            leading: Icon(Icons.schedule, color: Colors.orange[600]),
+            leading: Icon(
+              Icons.schedule,
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.orange[300]
+                  : Colors.orange[600],
+            ),
             title: const Text('时间表管理'),
             subtitle: const Text('自定义上课时间'),
             onTap: () async {
               Navigator.pop(context);
-              await Navigator.push(
+              final result = await Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (context) => const TimeTableManagementPage(),
                 ),
               );
-              await _reloadTimeTable();
+              if (result == true) {
+                await _reloadTimeTable();
+              }
             },
           ),
           ListTile(
-            leading: Icon(Icons.calendar_month, color: Colors.green[600]),
+            leading: Icon(
+              Icons.calendar_month,
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.green[300]
+                  : Colors.green[600],
+            ),
             title: const Text('学期管理'),
             subtitle: const Text('管理学期设置'),
             onTap: () async {
@@ -726,7 +748,12 @@ class _CourseTablePageState extends State<CourseTablePage> {
           // 工具功能分组
           _buildDrawerSection('工具'),
           ListTile(
-            leading: Icon(Icons.cloud_sync, color: Colors.teal[600]),
+            leading: Icon(
+              Icons.cloud_sync,
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.teal[300]
+                  : Colors.teal[600],
+            ),
             title: const Text('数据管理'),
             subtitle: const Text('导入和导出课程数据'),
             onTap: () async {
@@ -744,7 +771,12 @@ class _CourseTablePageState extends State<CourseTablePage> {
             },
           ),
           ListTile(
-            leading: Icon(Icons.share, color: Colors.purple[600]),
+            leading: Icon(
+              Icons.share,
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.purple[300]
+                  : Colors.purple[600],
+            ),
             title: const Text('分享课程表'),
             subtitle: const Text('生成分享图片'),
             onTap: () {
@@ -782,7 +814,12 @@ class _CourseTablePageState extends State<CourseTablePage> {
           // 设置和帮助分组
           _buildDrawerSection('其他'),
           ListTile(
-            leading: Icon(Icons.help_outline, color: Colors.amber[700]),
+            leading: Icon(
+              Icons.help_outline,
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.amber[300]
+                  : Colors.amber[700],
+            ),
             title: const Text('帮助'),
             subtitle: const Text('使用指南和常见问题'),
             onTap: () {
@@ -794,7 +831,12 @@ class _CourseTablePageState extends State<CourseTablePage> {
             },
           ),
           ListTile(
-            leading: Icon(Icons.info_outline, color: Colors.blue[700]),
+            leading: Icon(
+              Icons.info_outline,
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.blue[300]
+                  : Colors.blue[700],
+            ),
             title: const Text('关于'),
             subtitle: const Text('版本信息和开发者'),
             onTap: () {

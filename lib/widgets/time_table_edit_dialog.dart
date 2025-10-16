@@ -246,7 +246,7 @@ class _TimeTableEditDialogState extends State<TimeTableEditDialog> {
             // 删除按钮
             IconButton(
               icon: const Icon(Icons.delete_outline, size: 20),
-              color: Colors.red[400],
+              color: Theme.of(context).colorScheme.error,
               tooltip: '删除节次',
               onPressed: () => _removeSection(index),
               constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
@@ -315,7 +315,10 @@ class _TimeTableEditDialogState extends State<TimeTableEditDialog> {
                   const SizedBox(height: 4),
                   Text(
                     '点击时间字段打开时间选择器 (24小时制)',
-                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ],
               ),
@@ -337,14 +340,14 @@ class _TimeTableEditDialogState extends State<TimeTableEditDialog> {
                         Icon(
                           Icons.info_outline,
                           size: 16,
-                          color: Colors.grey[600],
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                         const SizedBox(width: 8),
                         Text(
                           '共 ${_sections.length} 节课',
                           style: TextStyle(
                             fontSize: 12,
-                            color: Colors.grey[600],
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
                         ),
                         const Spacer(),

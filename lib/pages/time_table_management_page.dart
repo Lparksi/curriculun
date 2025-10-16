@@ -288,7 +288,10 @@ class _TimeTableManagementPageState extends State<TimeTableManagementPage> {
                   padding: const EdgeInsets.symmetric(vertical: 2),
                   child: Text(
                     '第${section.section}节: ${section.startTime} - ${section.endTime}',
-                    style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 );
               }),
@@ -299,7 +302,7 @@ class _TimeTableManagementPageState extends State<TimeTableManagementPage> {
                     '... 还有${timeTable.sections.length - 3}节',
                     style: TextStyle(
                       fontSize: 12,
-                      color: Colors.grey[600],
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                       fontStyle: FontStyle.italic,
                     ),
                   ),
@@ -316,9 +319,19 @@ class _TimeTableManagementPageState extends State<TimeTableManagementPage> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 14, color: Colors.grey[600]),
+        Icon(
+          icon,
+          size: 14,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
         const SizedBox(width: 4),
-        Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[700])),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
       ],
     );
   }
@@ -354,7 +367,7 @@ class _TimeTableManagementPageState extends State<TimeTableManagementPage> {
                           size: 20,
                           color: isActive
                               ? Theme.of(context).colorScheme.primary
-                              : Colors.grey,
+                              : Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                         const SizedBox(width: 12),
                         Expanded(
@@ -409,12 +422,15 @@ class _TimeTableManagementPageState extends State<TimeTableManagementPage> {
                   Icon(
                     Icons.schedule_outlined,
                     size: 64,
-                    color: Colors.grey[400],
+                    color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
                   ),
                   const SizedBox(height: 16),
                   Text(
                     '暂无时间表',
-                    style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ],
               ),

@@ -76,6 +76,16 @@ class _SemesterManagementPageState extends State<SemesterManagementPage> {
           duration: const Duration(seconds: 2),
         ),
       );
+
+      // 如果是编辑当前激活的学期，通知父页面需要刷新
+      if (semester != null && semester.id == _activeSemesterId) {
+        // 延迟通知，确保 SnackBar 能够显示
+        Future.delayed(const Duration(milliseconds: 100), () {
+          if (mounted) {
+            Navigator.of(context).pop(true);
+          }
+        });
+      }
     }
   }
 
@@ -192,7 +202,9 @@ class _SemesterManagementPageState extends State<SemesterManagementPage> {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(
-          color: isActive ? Colors.blue : Colors.transparent,
+          color: isActive
+              ? Theme.of(context).colorScheme.primary
+              : Colors.transparent,
           width: 2,
         ),
       ),
@@ -213,7 +225,9 @@ class _SemesterManagementPageState extends State<SemesterManagementPage> {
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
-                        color: isActive ? Colors.blue : null,
+                        color: isActive
+                            ? Theme.of(context).colorScheme.primary
+                            : null,
                       ),
                     ),
                   ),
@@ -224,7 +238,7 @@ class _SemesterManagementPageState extends State<SemesterManagementPage> {
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.blue,
+                        color: Theme.of(context).colorScheme.primary,
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: const Text(
