@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/semester_settings.dart';
+import '../utils/performance_tracker.dart';
 
 /// 学期设置本地存储服务
 class SettingsService {
@@ -130,30 +131,36 @@ class SettingsService {
 
   /// 获取当前激活的学期
   static Future<SemesterSettings> getActiveSemester() async {
-    final activeSemesterId = await getActiveSemesterId();
-    final semesters = await getAllSemesters();
+    return PerformanceTracker.instance.traceAsync(
+      traceName: PerformanceTraces.loadSettings,
+      operation: () async {
+        final activeSemesterId = await getActiveSemesterId();
+        final semesters = await getAllSemesters();
 
-    if (activeSemesterId != null) {
-      final activeSemester = semesters.firstWhere(
-        (s) => s.id == activeSemesterId,
-        orElse: () => semesters.isNotEmpty
-            ? semesters.first
-            : SemesterSettings.defaultSettings(),
-      );
-      return activeSemester;
-    }
+        if (activeSemesterId != null) {
+          final activeSemester = semesters.firstWhere(
+            (s) => s.id == activeSemesterId,
+            orElse: () => semesters.isNotEmpty
+                ? semesters.first
+                : SemesterSettings.defaultSettings(),
+          );
+          return activeSemester;
+        }
 
-    // 如果没有激活学期，激活第一个学期
-    if (semesters.isNotEmpty) {
-      await setActiveSemesterId(semesters.first.id);
-      return semesters.first;
-    }
+        // 如果没有激活学期，激活第一个学期
+        if (semesters.isNotEmpty) {
+          await setActiveSemesterId(semesters.first.id);
+          return semesters.first;
+        }
 
-    // 创建并返回默认学期
-    final defaultSemester = SemesterSettings.defaultSettings();
-    await addSemester(defaultSemester);
-    await setActiveSemesterId(defaultSemester.id);
-    return defaultSemester;
+        // 创建并返回默认学期
+        final defaultSemester = SemesterSettings.defaultSettings();
+        await addSemester(defaultSemester);
+        await setActiveSemesterId(defaultSemester.id);
+        return defaultSemester;
+      },
+      attributes: {'operation': 'get_active'},
+    );
   }
 
   /// 复制学期
