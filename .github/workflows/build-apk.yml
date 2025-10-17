@@ -14,71 +14,23 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
-    name: Build APK
+  # ==========================================
+  # Job 1: 准备工作 - 获取版本信息
+  # ==========================================
+  prepare:
+    name: Prepare Build
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.VERSION }}
+      version_name: ${{ steps.version.outputs.VERSION_NAME }}
+      version_code: ${{ steps.version.outputs.VERSION_CODE }}
+      full_version: ${{ steps.version.outputs.FULL_VERSION }}
+      build_type: ${{ steps.version.outputs.BUILD_TYPE }}
+      build_label: ${{ steps.version.outputs.BUILD_LABEL }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'zulu'
-          java-version: '17'
-          cache: 'gradle'
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.35.6'
-          channel: 'stable'
-          cache: true
-
-      - name: Decode and setup google-services.json
-        run: |
-          echo "${{ secrets.GOOGLE_SERVICES_JSON }}" | base64 --decode > android/app/google-services.json
-          echo "✅ google-services.json created successfully"
-          # 验证文件是否有效
-          if [ ! -s android/app/google-services.json ]; then
-            echo "❌ Error: google-services.json is empty"
-            exit 1
-          fi
-
-      - name: Get dependencies
-        run: flutter pub get
-
-      - name: Analyze code
-        run: flutter analyze
-        continue-on-error: true
-
-      - name: Run tests
-        run: flutter test
-        continue-on-error: true
-
-      # 使用 --split-per-abi 减小单个 APK 大小（约减少 30%）
-      # 生成的 APK 文件：
-      # - app-armeabi-v7a-{debug|release}.apk (32位 ARM)
-      # - app-arm64-v8a-{debug|release}.apk (64位 ARM，主流设备)
-      # - app-x86_64-{debug|release}.apk (64位 x86，模拟器)
-      - name: Build APK Split by ABI (Debug)
-        if: github.ref == 'refs/heads/develop' || github.event_name == 'pull_request'
-        run: flutter build apk --debug --split-per-abi
-
-      - name: Build APK Split by ABI (Release)
-        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
-        run: flutter build apk --release --split-per-abi
-
-      # 构建通用 APK（包含所有架构，文件较大但兼容所有设备）
-      # 适合不确定设备架构的用户
-      - name: Build Universal APK (Debug)
-        if: github.ref == 'refs/heads/develop' || github.event_name == 'pull_request'
-        run: flutter build apk --debug
-
-      - name: Build Universal APK (Release)
-        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
-        run: flutter build apk --release
 
       - name: Get version from pubspec
         id: version
@@ -128,52 +80,197 @@ jobs:
           echo "  Build Type: $BUILD_TYPE"
           echo "  Build Label: $BUILD_LABEL"
 
-      - name: Rename APK
+  # ==========================================
+  # Job 2: 构建分离架构 APK（并行）
+  # ==========================================
+  build-split-apk:
+    name: Build Split APK
+    runs-on: ubuntu-latest
+    needs: prepare
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+          cache: 'gradle'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.35.6'
+          channel: 'stable'
+          cache: true
+
+      - name: Decode and setup google-services.json
         run: |
-          FULL_VERSION="${{ steps.version.outputs.FULL_VERSION }}"
-
-          # 通用 Release APK 重命名
-          if [ -f build/app/outputs/flutter-apk/app-release.apk ]; then
-            mv build/app/outputs/flutter-apk/app-release.apk \
-               build/app/outputs/flutter-apk/curriculum-${FULL_VERSION}-universal-release.apk
+          echo "${{ secrets.GOOGLE_SERVICES_JSON }}" | base64 --decode > android/app/google-services.json
+          echo "✅ google-services.json created successfully"
+          if [ ! -s android/app/google-services.json ]; then
+            echo "❌ Error: google-services.json is empty"
+            exit 1
           fi
 
-          # 通用 Debug APK 重命名
-          if [ -f build/app/outputs/flutter-apk/app-debug.apk ]; then
-            mv build/app/outputs/flutter-apk/app-debug.apk \
-               build/app/outputs/flutter-apk/curriculum-${FULL_VERSION}-universal-debug.apk
-          fi
+      - name: Get dependencies
+        run: flutter pub get
 
-          # 分离架构 Release APK 重命名
-          for apk in build/app/outputs/flutter-apk/app-*-release.apk; do
+      - name: Analyze code
+        run: flutter analyze
+        continue-on-error: true
+
+      - name: Run tests
+        run: flutter test
+        continue-on-error: true
+
+      # 使用 --split-per-abi 减小单个 APK 大小（约减少 30%）
+      # 生成的 APK 文件：
+      # - app-armeabi-v7a-{debug|release}.apk (32位 ARM)
+      # - app-arm64-v8a-{debug|release}.apk (64位 ARM，主流设备)
+      # - app-x86_64-{debug|release}.apk (64位 x86，模拟器)
+      - name: Build Split APK (Debug)
+        if: needs.prepare.outputs.build_type == 'debug'
+        run: flutter build apk --debug --split-per-abi
+
+      - name: Build Split APK (Release)
+        if: needs.prepare.outputs.build_type == 'release'
+        run: flutter build apk --release --split-per-abi
+
+      - name: Rename Split APK
+        run: |
+          FULL_VERSION="${{ needs.prepare.outputs.full_version }}"
+          BUILD_TYPE="${{ needs.prepare.outputs.build_type }}"
+
+          # 分离架构 APK 重命名
+          for apk in build/app/outputs/flutter-apk/app-*-${BUILD_TYPE}.apk; do
             if [ -f "$apk" ]; then
-              abi=$(echo "$apk" | sed 's/.*app-\(.*\)-release.apk/\1/')
-              mv "$apk" "build/app/outputs/flutter-apk/curriculum-${FULL_VERSION}-${abi}-release.apk"
+              abi=$(echo "$apk" | sed "s/.*app-\(.*\)-${BUILD_TYPE}.apk/\1/")
+              mv "$apk" "build/app/outputs/flutter-apk/curriculum-${FULL_VERSION}-${abi}-${BUILD_TYPE}.apk"
             fi
           done
 
-          # 分离架构 Debug APK 重命名
-          for apk in build/app/outputs/flutter-apk/app-*-debug.apk; do
-            if [ -f "$apk" ]; then
-              abi=$(echo "$apk" | sed 's/.*app-\(.*\)-debug.apk/\1/')
-              mv "$apk" "build/app/outputs/flutter-apk/curriculum-${FULL_VERSION}-${abi}-debug.apk"
-            fi
-          done
-
-      - name: List generated APKs
+      - name: List Split APKs
         run: |
-          echo "📦 Generated APK files:"
-          ls -lh build/app/outputs/flutter-apk/curriculum-*.apk || echo "No APK files found"
+          echo "📦 Generated Split APK files:"
+          ls -lh build/app/outputs/flutter-apk/curriculum-*-${{ needs.prepare.outputs.build_type }}.apk || echo "No APK files found"
+
+      - name: Upload Split APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: split-apk-${{ needs.prepare.outputs.build_label }}
+          path: build/app/outputs/flutter-apk/curriculum-*-${{ needs.prepare.outputs.build_type }}.apk
+          retention-days: ${{ needs.prepare.outputs.build_type == 'release' && 30 || 7 }}
+
+  # ==========================================
+  # Job 3: 构建通用 APK（并行）
+  # ==========================================
+  build-universal-apk:
+    name: Build Universal APK
+    runs-on: ubuntu-latest
+    needs: prepare
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+          cache: 'gradle'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.35.6'
+          channel: 'stable'
+          cache: true
+
+      - name: Decode and setup google-services.json
+        run: |
+          echo "${{ secrets.GOOGLE_SERVICES_JSON }}" | base64 --decode > android/app/google-services.json
+          echo "✅ google-services.json created successfully"
+          if [ ! -s android/app/google-services.json ]; then
+            echo "❌ Error: google-services.json is empty"
+            exit 1
+          fi
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      # 构建通用 APK（包含所有架构，文件较大但兼容所有设备）
+      # 适合不确定设备架构的用户
+      - name: Build Universal APK (Debug)
+        if: needs.prepare.outputs.build_type == 'debug'
+        run: flutter build apk --debug
+
+      - name: Build Universal APK (Release)
+        if: needs.prepare.outputs.build_type == 'release'
+        run: flutter build apk --release
+
+      - name: Rename Universal APK
+        run: |
+          FULL_VERSION="${{ needs.prepare.outputs.full_version }}"
+          BUILD_TYPE="${{ needs.prepare.outputs.build_type }}"
+
+          # 通用 APK 重命名
+          if [ -f build/app/outputs/flutter-apk/app-${BUILD_TYPE}.apk ]; then
+            mv build/app/outputs/flutter-apk/app-${BUILD_TYPE}.apk \
+               build/app/outputs/flutter-apk/curriculum-${FULL_VERSION}-universal-${BUILD_TYPE}.apk
+          fi
+
+      - name: List Universal APK
+        run: |
+          echo "📦 Generated Universal APK file:"
+          ls -lh build/app/outputs/flutter-apk/curriculum-*-universal-${{ needs.prepare.outputs.build_type }}.apk || echo "No APK file found"
+
+      - name: Upload Universal APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: universal-apk-${{ needs.prepare.outputs.build_label }}
+          path: build/app/outputs/flutter-apk/curriculum-*-universal-${{ needs.prepare.outputs.build_type }}.apk
+          retention-days: ${{ needs.prepare.outputs.build_type == 'release' && 30 || 7 }}
+
+  # ==========================================
+  # Job 4: 汇总和发布
+  # ==========================================
+  finalize:
+    name: Finalize Build
+    runs-on: ubuntu-latest
+    needs: [prepare, build-split-apk, build-universal-apk]
+    if: always() && needs.prepare.result == 'success'
+
+    steps:
+      - name: Download Split APKs
+        uses: actions/download-artifact@v4
+        with:
+          name: split-apk-${{ needs.prepare.outputs.build_label }}
+          path: ./apks/
+
+      - name: Download Universal APK
+        uses: actions/download-artifact@v4
+        with:
+          name: universal-apk-${{ needs.prepare.outputs.build_label }}
+          path: ./apks/
+
+      - name: List All APKs
+        run: |
+          echo "📦 All Generated APK files:"
+          ls -lh ./apks/*.apk || echo "No APK files found"
 
       - name: Generate Build Summary
         run: |
           echo "## 🚀 Build Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Version Information:**" >> $GITHUB_STEP_SUMMARY
-          echo "- Base Version: \`${{ steps.version.outputs.VERSION }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- Full Version: \`${{ steps.version.outputs.FULL_VERSION }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- Build Type: \`${{ steps.version.outputs.BUILD_TYPE }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- Build Label: \`${{ steps.version.outputs.BUILD_LABEL }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Base Version: \`${{ needs.prepare.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Full Version: \`${{ needs.prepare.outputs.full_version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Build Type: \`${{ needs.prepare.outputs.build_type }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Build Label: \`${{ needs.prepare.outputs.build_label }}\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Branch/Tag:**" >> $GITHUB_STEP_SUMMARY
           echo "- Ref: \`${{ github.ref }}\`" >> $GITHUB_STEP_SUMMARY
@@ -181,31 +278,26 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Generated APK Files:**" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-          ls -lh build/app/outputs/flutter-apk/curriculum-*.apk 2>/dev/null || echo "No APK files found"
-          ls -lh build/app/outputs/flutter-apk/curriculum-*.apk >> $GITHUB_STEP_SUMMARY 2>/dev/null || echo "No APK files found" >> $GITHUB_STEP_SUMMARY
+          ls -lh ./apks/*.apk 2>/dev/null || echo "No APK files found"
+          ls -lh ./apks/*.apk >> $GITHUB_STEP_SUMMARY 2>/dev/null || echo "No APK files found" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Build Jobs Status:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Split APK Build: \`${{ needs.build-split-apk.result }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Universal APK Build: \`${{ needs.build-universal-apk.result }}\`" >> $GITHUB_STEP_SUMMARY
 
-      - name: Upload APK (Release)
-        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
+      - name: Upload Combined APKs
         uses: actions/upload-artifact@v4
         with:
-          name: curriculum-${{ steps.version.outputs.BUILD_LABEL }}-apk
-          path: build/app/outputs/flutter-apk/curriculum-*-release.apk
-          retention-days: 30
-
-      - name: Upload APK (Debug)
-        if: github.ref == 'refs/heads/develop' || github.event_name == 'pull_request'
-        uses: actions/upload-artifact@v4
-        with:
-          name: curriculum-${{ steps.version.outputs.BUILD_LABEL }}-apk
-          path: build/app/outputs/flutter-apk/curriculum-*-debug.apk
-          retention-days: 7
+          name: curriculum-${{ needs.prepare.outputs.build_label }}-all-apks
+          path: ./apks/*.apk
+          retention-days: ${{ needs.prepare.outputs.build_type == 'release' && 30 || 7 }}
 
       - name: Create Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v1
         with:
-          files: build/app/outputs/flutter-apk/curriculum-*-release.apk
+          files: ./apks/*.apk
           draft: false
           prerelease: false
           generate_release_notes: true
