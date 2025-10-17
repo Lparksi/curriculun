@@ -4,9 +4,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'pages/course_table_page.dart';
 import 'services/app_theme_service.dart';
 import 'services/firebase_init_service.dart';
-import 'services/firebase_consent_service.dart';
 import 'utils/material_icon_loader.dart';
-import 'widgets/firebase_consent_dialog.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -38,48 +36,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _themeMode = widget.initialThemeMode;
     _updateSystemUiOverlay();
-    _checkFirebaseConsent();
-  }
-
-  /// 检查是否需要显示 Firebase 同意对话框
-  Future<void> _checkFirebaseConsent() async {
-    final consent = await FirebaseConsentService.loadConsent();
-
-    // 如果已经显示过对话框，不再显示
-    if (consent.hasShown) {
-      return;
-    }
-
-    // 延迟显示对话框，确保 UI 已经构建完成
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (!mounted) return;
-
-      final navigatorContext = await _waitForNavigatorContext();
-      if (navigatorContext == null || !navigatorContext.mounted) {
-        return;
-      }
-
-      final updatedConsent =
-          await FirebaseConsentDialog.show(navigatorContext);
-      if (updatedConsent != null) {
-        await FirebaseInitService.initialize();
-      }
-    });
-  }
-
-  Future<BuildContext?> _waitForNavigatorContext() async {
-    const int maxAttempts = 5;
-    for (var attempt = 0; attempt < maxAttempts; attempt++) {
-      final context = _navigatorKey.currentContext;
-      if (context != null) {
-        return context;
-      }
-      await Future<void>.delayed(const Duration(milliseconds: 16));
-      if (!mounted) {
-        return null;
-      }
-    }
-    return null;
   }
 
   void _onThemeModeChanged(ThemeMode mode) {

@@ -9,6 +9,8 @@ import '../services/settings_service.dart';
 import '../services/course_service.dart';
 import '../services/time_table_service.dart';
 import '../services/display_preferences_service.dart';
+import '../services/firebase_consent_service.dart';
+import '../services/firebase_init_service.dart';
 import '../widgets/course_detail_dialog.dart';
 import '../widgets/course_table_share_dialog.dart';
 import '../widgets/firebase_consent_dialog.dart';
@@ -84,6 +86,29 @@ class _CourseTablePageState extends State<CourseTablePage> {
       _courses = courses;
       _isLoadingSettings = false;
       _showWeekend = showWeekend;
+    });
+
+    // 页面加载完成后，检查是否需要显示 Firebase 同意对话框
+    _checkFirebaseConsent();
+  }
+
+  /// 检查是否需要显示 Firebase 同意对话框
+  Future<void> _checkFirebaseConsent() async {
+    final consent = await FirebaseConsentService.loadConsent();
+
+    // 如果已经显示过对话框，不再显示
+    if (consent.hasShown) {
+      return;
+    }
+
+    // 延迟显示对话框，确保 UI 完全构建完成
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+
+      final updatedConsent = await FirebaseConsentDialog.show(context);
+      if (updatedConsent != null) {
+        await FirebaseInitService.initialize();
+      }
     });
   }
 
