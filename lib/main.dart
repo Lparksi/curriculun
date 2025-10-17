@@ -30,6 +30,7 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   late ThemeMode _themeMode;
+  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
 
   @override
   void initState() {
@@ -53,8 +54,32 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
 
-      await FirebaseConsentDialog.show(context);
+      final navigatorContext = await _waitForNavigatorContext();
+      if (navigatorContext == null || !navigatorContext.mounted) {
+        return;
+      }
+
+      final updatedConsent =
+          await FirebaseConsentDialog.show(navigatorContext);
+      if (updatedConsent != null) {
+        await FirebaseInitService.initialize();
+      }
     });
+  }
+
+  Future<BuildContext?> _waitForNavigatorContext() async {
+    const int maxAttempts = 5;
+    for (var attempt = 0; attempt < maxAttempts; attempt++) {
+      final context = _navigatorKey.currentContext;
+      if (context != null) {
+        return context;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 16));
+      if (!mounted) {
+        return null;
+      }
+    }
+    return null;
   }
 
   void _onThemeModeChanged(ThemeMode mode) {
@@ -104,6 +129,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     return MaterialApp(
       title: '课程表',
       debugShowCheckedModeBanner: false,
+      navigatorKey: _navigatorKey,
       // 添加本地化支持
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
