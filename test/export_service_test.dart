@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:curriculum/services/export_service.dart';
 import 'package:curriculum/services/course_service.dart';
 import 'package:curriculum/services/settings_service.dart';
+import 'package:curriculum/services/config_version_manager.dart';
 import 'package:curriculum/models/course.dart';
 import 'package:curriculum/models/semester_settings.dart';
 import 'package:curriculum/models/time_table.dart';
@@ -43,7 +44,7 @@ void main() {
       final jsonData = jsonDecode(jsonString) as Map<String, dynamic>;
 
       // 验证必需字段
-      expect(jsonData, containsPair('version', '1.0.0'));
+      expect(jsonData, containsPair('version', ConfigVersionManager.currentVersion));
       expect(jsonData, contains('exportTime'));
       expect(jsonData, contains('data'));
 
@@ -111,7 +112,7 @@ void main() {
       final testTimeTable = TimeTable.defaultTimeTable();
 
       final exportData = {
-        'version': '1.0.0',
+        'version': ConfigVersionManager.currentVersion,
         'exportTime': DateTime.now().toIso8601String(),
         'data': {
           'courses': [testCourse.toJson()],
@@ -183,7 +184,7 @@ void main() {
       );
 
       final exportData = {
-        'version': '1.0.0',
+        'version': ConfigVersionManager.currentVersion,
         'exportTime': DateTime.now().toIso8601String(),
         'data': {
           'courses': [newCourse.toJson()],
