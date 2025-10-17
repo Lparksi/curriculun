@@ -5,6 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:share_plus/share_plus.dart';
 import '../services/export_service.dart';
 import '../utils/web_file_utils.dart';
+import 'webdav_backup_page.dart';
 
 /// 数据管理页面
 /// 提供数据导出和导入功能
@@ -82,9 +83,33 @@ class _DataManagementPageState extends State<DataManagementPage> {
 
           const SizedBox(height: 32),
 
+          // WebDAV 备份部分
+          _buildSectionTitle('WebDAV 云备份'),
+          const SizedBox(height: 8),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.cloud, color: Colors.purple),
+              title: const Text('WebDAV 备份管理'),
+              subtitle: const Text('配置 WebDAV 服务器并进行云备份'),
+              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+              onTap: _openWebDavBackup,
+            ),
+          ),
+
+          const SizedBox(height: 32),
+
           // 说明文字
           _buildInfoCard(),
         ],
+      ),
+    );
+  }
+
+  /// 打开 WebDAV 备份页面
+  void _openWebDavBackup() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => const WebDavBackupPage(),
       ),
     );
   }
