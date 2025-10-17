@@ -198,22 +198,27 @@ class _TimeTableEditDialogState extends State<TimeTableEditDialog> {
             const SizedBox(width: 8),
 
             // 开始时间
-            Expanded(
-              child: InkWell(
-                onTap: () => _selectTime(context, index, true),
-                child: InputDecorator(
-                  decoration: const InputDecoration(
-                    labelText: '开始',
-                    border: OutlineInputBorder(),
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
+            Flexible(
+              flex: 1,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minWidth: 100),
+                child: InkWell(
+                  onTap: () => _selectTime(context, index, true),
+                  child: InputDecorator(
+                    decoration: const InputDecoration(
+                      labelText: '开始',
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      suffixIcon: Icon(Icons.access_time, size: 18),
+                      isDense: true,
                     ),
-                    suffixIcon: Icon(Icons.access_time, size: 18),
-                  ),
-                  child: Text(
-                    section.startTime,
-                    style: const TextStyle(fontSize: 14),
+                    child: Text(
+                      section.startTime,
+                      style: const TextStyle(fontSize: 14),
+                    ),
                   ),
                 ),
               ),
@@ -221,22 +226,27 @@ class _TimeTableEditDialogState extends State<TimeTableEditDialog> {
             const SizedBox(width: 8),
 
             // 结束时间
-            Expanded(
-              child: InkWell(
-                onTap: () => _selectTime(context, index, false),
-                child: InputDecorator(
-                  decoration: const InputDecoration(
-                    labelText: '结束',
-                    border: OutlineInputBorder(),
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
+            Flexible(
+              flex: 1,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minWidth: 100),
+                child: InkWell(
+                  onTap: () => _selectTime(context, index, false),
+                  child: InputDecorator(
+                    decoration: const InputDecoration(
+                      labelText: '结束',
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      suffixIcon: Icon(Icons.access_time, size: 18),
+                      isDense: true,
                     ),
-                    suffixIcon: Icon(Icons.access_time, size: 18),
-                  ),
-                  child: Text(
-                    section.endTime,
-                    style: const TextStyle(fontSize: 14),
+                    child: Text(
+                      section.endTime,
+                      style: const TextStyle(fontSize: 14),
+                    ),
                   ),
                 ),
               ),
