@@ -43,6 +43,10 @@ dependencies:
   web: ^1.1.1
   webdav_client: ^1.2.2
 
+  # Firebase Crashlytics
+  firebase_core: ^3.12.0
+  firebase_crashlytics: ^4.2.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

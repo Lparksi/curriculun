@@ -1,12 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'pages/course_table_page.dart';
 import 'services/app_theme_service.dart';
 import 'utils/material_icon_loader.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // 初始化 Firebase
+  await Firebase.initializeApp();
+
+  // 将 Flutter 框架错误传递给 Crashlytics
+  FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+
   await MaterialIconLoader.ensureLoaded();
   final initialThemeMode = await AppThemeService.loadThemeMode();
   runApp(MyApp(initialThemeMode: initialThemeMode));
