@@ -85,9 +85,8 @@ class CourseService {
               return Course.fromJson(course);
             }).toList();
           } else {
-            // 首次使用，从 assets 加载（暂不保存，让学期初始化完成后再保存）
-            final courses = await loadCoursesFromAssets();
-            return courses;
+            // 首次使用，返回空列表（不再从 assets 自动加载）
+            return [];
           }
         } catch (e) {
           debugPrint('加载课程数据失败: $e');
@@ -113,41 +112,9 @@ class CourseService {
     }
 
     // 筛选指定学期的课程
-    final semesterCourses = allCourses
+    return allCourses
         .where((course) => course.semesterId == semesterId)
         .toList();
-
-    // 如果没有该学期的课程，但存在没有学期ID的课程（首次加载的情况）
-    if (semesterCourses.isEmpty && allCourses.any((c) => c.semesterId == null)) {
-      // 为这些课程分配当前学期ID
-      final prefs = await SharedPreferences.getInstance();
-      final savedJson = prefs.getString(_coursesKey);
-
-      // 只有当本地没有保存过课程时才自动分配（首次使用）
-      if (savedJson == null || savedJson.isEmpty) {
-        final updatedCourses = allCourses.map((course) {
-          // 创建新的课程对象，添加学期ID
-          return Course(
-            name: course.name,
-            location: course.location,
-            teacher: course.teacher,
-            weekday: course.weekday,
-            startSection: course.startSection,
-            duration: course.duration,
-            color: course.color,
-            startWeek: course.startWeek,
-            endWeek: course.endWeek,
-            semesterId: semesterId,
-          );
-        }).toList();
-
-        // 保存到本地
-        await saveCourses(updatedCourses);
-        return updatedCourses;
-      }
-    }
-
-    return semesterCourses;
   }
 
   /// 加载课程列表（默认加载所有课程）

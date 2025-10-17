@@ -4,7 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 变更记录 (Changelog)
 
-### 最近更新: 2025-10-17 15:06:44
+### 最近更新: 2025-10-17 16:30:00
+
+**v1.0.0+1 (2025-10-17) - 清理默认数据，优化首次启动体验**
+- 移除默认课程数据，应用首次启动时不再自动加载示例数据
+- 保留 Firebase 用户同意对话框，首次启动时自动弹出让用户选择
+- 优化数据初始化逻辑，所有配置由用户主动创建
+- 更新文档说明新的初始化流程
 
 **v1.0.0+1 (2025-10-17) - AI 上下文文档初始化**
 - 完成项目 AI 上下文文档体系建设
@@ -105,7 +111,7 @@ graph TD
     Utils --> UtilIconLoader["material_icon_loader.dart<br/>Material图标加载"]
     Utils --> UtilWebFile["web_file_utils.dart<br/>Web文件操作"]
 
-    Assets --> AssetCourses["courses.json<br/>默认课程数据（19门示例）"]
+    Assets --> AssetCourses["courses.json<br/>空课程数据模板"]
     Assets --> AssetFonts["fonts/MaterialIcons-Regular.otf<br/>Material图标字体"]
 
     click Models "/home/parski/projects/curriculum/curriculum/lib/models/CLAUDE.md" "查看数据模型层文档"
@@ -266,8 +272,8 @@ graph TB
 - 新增:Firebase 性能跟踪、Web 文件操作
 
 **5. 存储层**
-- **SharedPreferences**: 键值对存储 (课程、学期、时间表、主题、WebDAV配置)
-- **Assets**: 只读资源 (默认课程模板、Material 图标字体)
+- **SharedPreferences**: 键值对存储 (课程、学期、时间表、主题、WebDAV配置、Firebase同意配置)
+- **Assets**: 只读资源 (Material 图标字体)
 - **WebDAV**: 云端备份存储
 
 ---
@@ -533,6 +539,7 @@ await prefs.setString('courses', data); // key 应该是常量
 - `active_time_table_id`: 当前激活的时间表ID (字符串)
 - `app_theme_mode`: 应用主题模式 (字符串: light/dark/system)
 - `webdav_config`: WebDAV 配置 (JSON 字符串)
+- `firebase_consent`: Firebase 功能同意配置 (JSON 字符串)
 
 ### JSON 序列化规范
 
@@ -688,26 +695,31 @@ try {
 ### Assets 资源
 
 **courses.json** (`assets/courses.json`)
-- 默认课程数据模板
-- 包含 19 门示例课程
-- 首次启动时加载并保存到本地存储
+- 空课程数据模板
+- 首次启动时不自动加载，由用户手动添加课程
+- 仅用于导入/导出功能的参考格式
 
 **JSON 格式示例:**
 ```json
 {
-  "courses": [
-    {
-      "name": "大学体育(三)",
-      "location": "篮球场(文明)",
-      "teacher": "王银晖",
-      "weekday": 1,
-      "startSection": 1,
-      "duration": 2,
-      "startWeek": 1,
-      "endWeek": 16,
-      "color": ""
-    }
-  ]
+  "courses": []
+}
+```
+
+**完整课程对象格式（用于导入时参考）:**
+```json
+{
+  "name": "课程名称",
+  "location": "上课地点",
+  "teacher": "教师姓名",
+  "weekday": 1,
+  "startSection": 1,
+  "duration": 2,
+  "startWeek": 1,
+  "endWeek": 16,
+  "color": "",
+  "semesterId": "学期ID（可选）",
+  "isHidden": false
 }
 ```
 
@@ -994,15 +1006,32 @@ await WebDavService.deleteBackupFile(remotePath);
 
 ### 5. Firebase 集成
 
+**首次启动用户同意流程：**
+1. 应用首次启动时，会自动弹出 Firebase 功能同意对话框
+2. 对话框不可取消（`barrierDismissible: false`），用户必须做出选择
+3. 用户可以选择：
+   - **全部拒绝**：禁用所有 Firebase 功能
+   - **全部接受**：启用所有 Firebase 功能
+   - **确认**：按当前选择（可单独开关每个功能）
+4. 选择保存后，`hasShown` 标记设为 `true`，后续启动不再显示
+5. 用户可在设置中随时更改 Firebase 功能开关（需重启应用生效）
+
+**核心组件：**
+- `FirebaseConsentService`: 管理用户同意配置的持久化
+- `FirebaseConsentDialog`: 首次启动或设置页面中的同意对话框
+- `FirebaseInitService`: 根据用户选择条件初始化 Firebase 功能
+- `FirebaseConsent` 模型：存储用户对各功能的同意状态
+
 **Firebase Crashlytics（崩溃报告）:**
 - 自动捕获 Flutter 框架错误
 - 记录致命异常和堆栈跟踪
-- 在 `main.dart` 中初始化
+- 仅在用户同意后启用
 
 **Firebase Performance Monitoring（性能监控）:**
 - 自动跟踪屏幕渲染性能
 - 自动跟踪网络请求
 - 支持自定义性能跟踪
+- 仅在用户同意后启用
 
 **使用示例:**
 ```dart
