@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../models/course.dart';
 import '../models/semester_settings.dart';
 import '../models/time_table.dart';
@@ -1064,11 +1065,16 @@ class _CourseTablePageState extends State<CourseTablePage> {
   }
 
   /// 显示关于对话框
-  void _showAboutDialog() {
+  Future<void> _showAboutDialog() async {
+    final packageInfo = await PackageInfo.fromPlatform();
+    final version = '${packageInfo.version}+${packageInfo.buildNumber}';
+
+    if (!mounted) return;
+
     showAboutDialog(
       context: context,
       applicationName: '课程表',
-      applicationVersion: '1.0.0+1',
+      applicationVersion: version,
       applicationIcon: const Icon(
         Icons.calendar_today,
         size: 48,
