@@ -11,7 +11,7 @@ Future<bool> downloadImage(Uint8List imageBytes, String fileName) async {
   try {
     // 1. 创建 Blob 对象
     final blob = web.Blob(
-      [imageBytes.toJS as JSAny].toJS,
+      [imageBytes.toJS].toJS,
       web.BlobPropertyBag(type: 'image/png'),
     );
 
