@@ -19,10 +19,11 @@ class FirebaseConsentDialog extends StatefulWidget {
     BuildContext context, {
     bool isSettings = false,
   }) {
-    return showDialog<FirebaseConsent>(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => FirebaseConsentDialog(isSettings: isSettings),
+    return Navigator.of(context).push<FirebaseConsent>(
+      MaterialPageRoute(
+        builder: (context) => FirebaseConsentDialog(isSettings: isSettings),
+        fullscreenDialog: true,
+      ),
     );
   }
 
@@ -55,17 +56,23 @@ class _FirebaseConsentDialogState extends State<FirebaseConsentDialog> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    return AlertDialog(
-      title: Row(
-        children: [
-          Icon(Icons.privacy_tip_outlined, color: colorScheme.primary),
-          const SizedBox(width: 12),
-          const Text('隐私与数据使用'),
-        ],
-      ),
-      content: SingleChildScrollView(
+    return PopScope(
+      canPop: widget.isSettings, // 仅在设置页面时允许返回
+      child: Scaffold(
+        appBar: AppBar(
+          title: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.privacy_tip_outlined, color: colorScheme.primary),
+              const SizedBox(width: 12),
+              const Text('隐私与数据使用'),
+            ],
+          ),
+          automaticallyImplyLeading: widget.isSettings,
+        ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
@@ -135,25 +142,67 @@ class _FirebaseConsentDialogState extends State<FirebaseConsentDialog> {
                 ],
               ),
             ),
+            // 添加底部安全区域
+            const SizedBox(height: 80),
           ],
         ),
       ),
-      actions: [
-        if (!widget.isSettings)
-          TextButton(
-            onPressed: () => _handleDeclineAll(context),
-            child: const Text('全部拒绝'),
+      bottomNavigationBar: SafeArea(
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: colorScheme.surface,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 10,
+                offset: const Offset(0, -2),
+              ),
+            ],
           ),
-        if (!widget.isSettings)
-          TextButton(
-            onPressed: () => _handleAcceptAll(context),
-            child: const Text('全部接受'),
+          child: Row(
+            children: [
+              // 全部拒绝按钮
+              if (!widget.isSettings)
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => _handleDeclineAll(context),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      foregroundColor: colorScheme.error,
+                      side: BorderSide(color: colorScheme.error),
+                    ),
+                    child: const Text('全部拒绝'),
+                  ),
+                ),
+              if (!widget.isSettings) const SizedBox(width: 12),
+              // 全部接受按钮
+              if (!widget.isSettings)
+                Expanded(
+                  child: FilledButton.tonal(
+                    onPressed: () => _handleAcceptAll(context),
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    child: const Text('全部接受'),
+                  ),
+                ),
+              if (!widget.isSettings) const SizedBox(width: 12),
+              // 确认按钮
+              Expanded(
+                child: FilledButton(
+                  onPressed: () => _handleConfirm(context),
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  child: Text(widget.isSettings ? '保存并重启' : '确认'),
+                ),
+              ),
+            ],
           ),
-        FilledButton(
-          onPressed: () => _handleConfirm(context),
-          child: Text(widget.isSettings ? '保存并重启' : '确认'),
         ),
-      ],
+      ),
+      ),
     );
   }
 
