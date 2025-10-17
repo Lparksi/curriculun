@@ -1,0 +1,102 @@
+name: Build Android APK
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+    tags:
+      - 'v*'
+  pull_request:
+    branches:
+      - main
+      - develop
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+          cache: 'gradle'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.35.6'
+          channel: 'stable'
+          cache: true
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Analyze code
+        run: flutter analyze
+        continue-on-error: true
+
+      - name: Run tests
+        run: flutter test
+        continue-on-error: true
+
+      - name: Build APK (Debug)
+        if: github.ref == 'refs/heads/develop' || github.event_name == 'pull_request'
+        run: flutter build apk --debug
+
+      - name: Build APK (Release)
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
+        run: flutter build apk --release
+
+      - name: Get version from pubspec
+        id: version
+        run: |
+          VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //')
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "VERSION_NAME=$(echo $VERSION | cut -d'+' -f1)" >> $GITHUB_OUTPUT
+          echo "VERSION_CODE=$(echo $VERSION | cut -d'+' -f2)" >> $GITHUB_OUTPUT
+
+      - name: Rename APK
+        run: |
+          if [ -f build/app/outputs/flutter-apk/app-release.apk ]; then
+            mv build/app/outputs/flutter-apk/app-release.apk \
+               build/app/outputs/flutter-apk/curriculum-${{ steps.version.outputs.VERSION_NAME }}-release.apk
+          fi
+          if [ -f build/app/outputs/flutter-apk/app-debug.apk ]; then
+            mv build/app/outputs/flutter-apk/app-debug.apk \
+               build/app/outputs/flutter-apk/curriculum-${{ steps.version.outputs.VERSION_NAME }}-debug.apk
+          fi
+
+      - name: Upload APK (Release)
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
+        uses: actions/upload-artifact@v4
+        with:
+          name: curriculum-release-apk-${{ steps.version.outputs.VERSION_NAME }}
+          path: build/app/outputs/flutter-apk/curriculum-*-release.apk
+          retention-days: 30
+
+      - name: Upload APK (Debug)
+        if: github.ref == 'refs/heads/develop' || github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: curriculum-debug-apk-${{ steps.version.outputs.VERSION_NAME }}
+          path: build/app/outputs/flutter-apk/curriculum-*-debug.apk
+          retention-days: 7
+
+      - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: build/app/outputs/flutter-apk/curriculum-*-release.apk
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
