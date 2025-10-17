@@ -1,3 +1,4 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_performance/firebase_performance.dart';
 import 'package:flutter/foundation.dart';
 
@@ -9,21 +10,35 @@ class PerformanceTracker {
   static final PerformanceTracker _instance = PerformanceTracker._();
   static PerformanceTracker get instance => _instance;
 
-  final FirebasePerformance _performance = FirebasePerformance.instance;
+  FirebasePerformance? _performance;
 
-  // 是否启用性能监控（在 release 模式下启用）
-  bool get isEnabled => kReleaseMode;
+  FirebasePerformance? get performance {
+    // 懒加载，仅在 Firebase 已初始化时获取实例
+    if (_performance == null) {
+      try {
+        if (Firebase.apps.isNotEmpty) {
+          _performance = FirebasePerformance.instance;
+        }
+      } catch (e) {
+        debugPrint('⚠️ [Performance] Firebase 未初始化，性能监控已禁用');
+      }
+    }
+    return _performance;
+  }
+
+  // 是否启用性能监控（需要 Firebase 已初始化且在 release 模式下）
+  bool get isEnabled => kReleaseMode && performance != null;
 
   /// 开始自定义跟踪
   /// [name] 跟踪名称，建议使用清晰的命名规范，如：load_courses, save_settings
   Future<Trace?> startTrace(String name) async {
-    if (!isEnabled) {
-      debugPrint('⏱️ [Performance] $name (跟踪已禁用 - Debug 模式)');
+    if (!isEnabled || performance == null) {
+      debugPrint('⏱️ [Performance] $name (跟踪已禁用)');
       return null;
     }
 
     try {
-      final trace = _performance.newTrace(name);
+      final trace = performance!.newTrace(name);
       await trace.start();
       debugPrint('⏱️ [Performance] 开始跟踪: $name');
       return trace;
@@ -162,8 +177,13 @@ class PerformanceTracker {
   /// 设置性能监控是否启用
   /// 注意：这只影响数据收集，不影响性能
   Future<void> setPerformanceCollectionEnabled(bool enabled) async {
+    if (performance == null) {
+      debugPrint('⚠️ [Performance] Firebase 未初始化，无法设置性能数据收集');
+      return;
+    }
+
     try {
-      await _performance.setPerformanceCollectionEnabled(enabled);
+      await performance!.setPerformanceCollectionEnabled(enabled);
       debugPrint('📊 [Performance] 性能数据收集: ${enabled ? "已启用" : "已禁用"}');
     } catch (e) {
       debugPrint('❌ [Performance] 设置性能数据收集失败: $e');
@@ -177,13 +197,13 @@ class PerformanceTracker {
     String url,
     HttpMethod method,
   ) async {
-    if (!isEnabled) {
-      debugPrint('🌐 [Performance] HTTP 请求跟踪已禁用 - Debug 模式');
+    if (!isEnabled || performance == null) {
+      debugPrint('🌐 [Performance] HTTP 请求跟踪已禁用');
       return null;
     }
 
     try {
-      final metric = _performance.newHttpMetric(url, method);
+      final metric = performance!.newHttpMetric(url, method);
       debugPrint('🌐 [Performance] 创建 HTTP 跟踪: $method $url');
       return metric;
     } catch (e) {

@@ -11,6 +11,7 @@ import '../services/time_table_service.dart';
 import '../services/display_preferences_service.dart';
 import '../widgets/course_detail_dialog.dart';
 import '../widgets/course_table_share_dialog.dart';
+import '../widgets/firebase_consent_dialog.dart';
 import 'semester_management_page.dart';
 import 'course_management_page.dart';
 import 'time_table_management_page.dart';
@@ -937,6 +938,19 @@ class _CourseTablePageState extends State<CourseTablePage> {
             onChanged: _updateShowWeekend,
             contentPadding: const EdgeInsets.symmetric(horizontal: 16),
           ),
+          ListTile(
+            leading: Icon(
+              Icons.privacy_tip_outlined,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            title: const Text('隐私与数据使用'),
+            subtitle: const Text('管理 Firebase 功能设置'),
+            onTap: () {
+              Navigator.pop(context);
+              _showFirebaseConsentSettings();
+            },
+            trailing: const Icon(Icons.chevron_right),
+          ),
           const Divider(),
           // 设置和帮助分组
           _buildDrawerSection('其他'),
@@ -1061,6 +1075,14 @@ class _CourseTablePageState extends State<CourseTablePage> {
       weekStartDate: _currentWeekStartDate,
       showWeekend: _showWeekend,
       semesterName: _currentSemester?.name,
+    );
+  }
+
+  /// 显示 Firebase 隐私设置对话框
+  Future<void> _showFirebaseConsentSettings() async {
+    await FirebaseConsentDialog.show(
+      context,
+      isSettings: true,
     );
   }
 
