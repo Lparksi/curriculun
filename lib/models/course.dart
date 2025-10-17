@@ -13,6 +13,7 @@ class Course {
   final int startWeek; // 开始周次
   final int endWeek; // 结束周次
   final String? semesterId; // 关联的学期ID (可选，用于多学期支持)
+  final bool isHidden; // 是否隐藏 (用于处理冲突课程)
 
   Course({
     required this.name,
@@ -25,6 +26,7 @@ class Course {
     this.startWeek = 1, // 默认第1周开始
     this.endWeek = 20, // 默认第20周结束
     this.semesterId, // 默认为null (向后兼容)
+    this.isHidden = false, // 默认不隐藏
   });
 
   /// 从 JSON 创建 Course 对象
@@ -40,6 +42,7 @@ class Course {
       endWeek: json['endWeek'] as int? ?? 20,
       color: colorFromHex(json['color'] as String?),
       semesterId: json['semesterId'] as String?, // 可选字段
+      isHidden: json['isHidden'] as bool? ?? false, // 默认不隐藏
     );
   }
 
@@ -56,6 +59,7 @@ class Course {
       'endWeek': endWeek,
       'color': colorToHex(color),
       if (semesterId != null) 'semesterId': semesterId, // 仅在非null时保存
+      'isHidden': isHidden,
     };
   }
 

@@ -218,4 +218,42 @@ class CourseService {
     }
     return false;
   }
+
+  /// 获取所有冲突的课程列表（增强版）
+  static List<Course> getConflictingCourses(
+    List<Course> courses,
+    Course newCourse, {
+    int? excludeIndex,
+  }) {
+    final conflicts = <Course>[];
+
+    for (int i = 0; i < courses.length; i++) {
+      if (excludeIndex != null && i == excludeIndex) continue;
+
+      final course = courses[i];
+
+      // 检查是否在同一天
+      if (course.weekday != newCourse.weekday) continue;
+
+      // 检查周次是否有重叠
+      final weekOverlap =
+          !(newCourse.endWeek < course.startWeek ||
+              newCourse.startWeek > course.endWeek);
+      if (!weekOverlap) continue;
+
+      // 检查节次是否有重叠
+      final newEndSection = newCourse.startSection + newCourse.duration - 1;
+      final existingEndSection = course.startSection + course.duration - 1;
+
+      final sectionOverlap =
+          !(newEndSection < course.startSection ||
+              newCourse.startSection > existingEndSection);
+
+      if (sectionOverlap) {
+        conflicts.add(course);
+      }
+    }
+
+    return conflicts;
+  }
 }

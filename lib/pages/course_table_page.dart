@@ -177,9 +177,12 @@ class _CourseTablePageState extends State<CourseTablePage> {
     return weekStart.subtract(Duration(days: weekday - 1));
   }
 
-  /// 根据当前周次过滤课程
+  /// 根据当前周次过滤课程（同时过滤隐藏的课程）
   List<Course> get _currentWeekCourses {
     return _courses.where((course) {
+      // 过滤隐藏的课程
+      if (course.isHidden) return false;
+      // 过滤不在当前周次的课程
       return _currentWeek >= course.startWeek && _currentWeek <= course.endWeek;
     }).toList();
   }
@@ -487,6 +490,9 @@ class _CourseTablePageState extends State<CourseTablePage> {
     final dividerColor = Theme.of(context).dividerColor;
     final cellWidth = _calculateCellWidth(context);
 
+    // 按时间段分组课程，检测冲突
+    final courseGroups = _groupConflictingCourses(visibleCourses);
+
     return SizedBox(
       height: _currentTimeTable.sections.length * cellHeight,
       child: Stack(
@@ -513,27 +519,106 @@ class _CourseTablePageState extends State<CourseTablePage> {
               ),
             ),
           ),
-          // 课程卡片 - 仅显示当前周的课程
-          ...visibleCourses.map(
-            (course) => _buildCourseCard(course, cellWidth),
-          ),
+          // 课程卡片 - 支持冲突课程并排显示
+          ...courseGroups.expand((group) {
+            if (group.length == 1) {
+              // 无冲突，正常显示
+              return [_buildCourseCard(group[0], cellWidth, 1, 0)];
+            } else {
+              // 有冲突，并排显示
+              return group.asMap().entries.map((entry) {
+                final index = entry.key;
+                final course = entry.value;
+                return _buildCourseCard(
+                  course,
+                  cellWidth,
+                  group.length, // 总共有几门冲突的课程
+                  index, // 当前是第几门
+                );
+              });
+            }
+          }),
         ],
       ),
     );
   }
 
+  /// 将冲突的课程分组
+  List<List<Course>> _groupConflictingCourses(List<Course> courses) {
+    final groups = <List<Course>>[];
+    final processed = <Course>{};
+
+    for (final course in courses) {
+      if (processed.contains(course)) continue;
+
+      // 找到所有与该课程冲突的课程
+      final conflictGroup = <Course>[course];
+      processed.add(course);
+
+      for (final otherCourse in courses) {
+        if (processed.contains(otherCourse)) continue;
+
+        // 检查是否冲突
+        if (_isConflicting(course, otherCourse)) {
+          conflictGroup.add(otherCourse);
+          processed.add(otherCourse);
+        }
+      }
+
+      groups.add(conflictGroup);
+    }
+
+    return groups;
+  }
+
+  /// 判断两门课程是否在时间上冲突
+  bool _isConflicting(Course a, Course b) {
+    // 检查是否在同一天
+    if (a.weekday != b.weekday) return false;
+
+    // 检查节次是否重叠
+    final aEnd = a.startSection + a.duration - 1;
+    final bEnd = b.startSection + b.duration - 1;
+
+    return !(aEnd < b.startSection || a.startSection > bEnd);
+  }
+
   /// 构建单个课程卡片
-  Widget _buildCourseCard(Course course, double cellWidth) {
+  ///
+  /// [course] 课程对象
+  /// [cellWidth] 单元格宽度
+  /// [conflictCount] 冲突课程总数（默认1表示无冲突）
+  /// [conflictIndex] 当前课程在冲突组中的索引（从0开始）
+  Widget _buildCourseCard(
+    Course course,
+    double cellWidth, [
+    int conflictCount = 1,
+    int conflictIndex = 0,
+  ]) {
     const cellHeight = 85.0;
-    final left = (course.weekday - 1) * cellWidth;
+
+    // 计算位置和宽度（支持冲突课程并排显示）
+    final baseLeft = (course.weekday - 1) * cellWidth;
     final top = (course.startSection - 1) * cellHeight;
     final height = course.duration * cellHeight - 3;
 
-    // 根据卡片高度动态调整字体大小
+    // 如果有冲突，平分宽度
+    final cardWidth = (cellWidth - 3) / conflictCount;
+    final left = baseLeft + 1.5 + (cardWidth * conflictIndex);
+
+    // 根据卡片高度和宽度动态调整字体大小
     final isSmallCard = course.duration == 1;
-    final nameFontSize = isSmallCard ? 11.0 : 13.0;
-    final locationFontSize = isSmallCard ? 9.0 : 10.0;
-    final teacherFontSize = isSmallCard ? 8.5 : 9.5;
+    final isNarrowCard = conflictCount > 1; // 有冲突时卡片变窄
+
+    final nameFontSize = isNarrowCard
+        ? (isSmallCard ? 10.0 : 11.5)
+        : (isSmallCard ? 11.0 : 13.0);
+    final locationFontSize = isNarrowCard
+        ? (isSmallCard ? 8.0 : 9.0)
+        : (isSmallCard ? 9.0 : 10.0);
+    final teacherFontSize = isNarrowCard
+        ? (isSmallCard ? 7.5 : 8.5)
+        : (isSmallCard ? 8.5 : 9.5);
 
     // 文字阴影增强对比度
     final textShadow = [
@@ -544,77 +629,95 @@ class _CourseTablePageState extends State<CourseTablePage> {
       ),
     ];
 
+    // 冲突提示边框
+    final hasConflict = conflictCount > 1;
+    final borderDecoration = hasConflict
+        ? BoxDecoration(
+            border: Border.all(
+              color: Colors.orange,
+              width: 2,
+            ),
+            borderRadius: BorderRadius.circular(6),
+          )
+        : null;
+
     return Positioned(
-      left: left + 1.5,
+      left: left,
       top: top + 1.5,
-      width: cellWidth - 3,
+      width: cardWidth,
       height: height,
       child: GestureDetector(
         onTap: () => CourseDetailDialog.show(context, course),
         child: Container(
-          decoration: BoxDecoration(
-            color: course.color,
-            borderRadius: BorderRadius.circular(6),
-            // 添加渐变覆盖层增强深度
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [course.color, course.color.withValues(alpha: 0.9)],
-            ),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // 课程名称 - 主要信息,字体最大最粗
-              Text(
-                course.name,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: nameFontSize,
-                  fontWeight: FontWeight.w700,
-                  height: 1.15,
-                  letterSpacing: -0.2,
-                  shadows: textShadow,
-                ),
-                maxLines: isSmallCard ? 1 : 3,
-                overflow: TextOverflow.ellipsis,
+          decoration: borderDecoration,
+          child: Container(
+            decoration: BoxDecoration(
+              color: course.color,
+              borderRadius: BorderRadius.circular(hasConflict ? 4 : 6),
+              // 添加渐变覆盖层增强深度
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [course.color, course.color.withValues(alpha: 0.9)],
               ),
-              // 上课地点 - 次要信息
-              if (course.location.isNotEmpty) ...[
-                const SizedBox(height: 2),
+            ),
+            padding: EdgeInsets.symmetric(
+              horizontal: isNarrowCard ? 3 : 5,
+              vertical: 5,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // 课程名称 - 主要信息,字体最大最粗
                 Text(
-                  '@${course.location}',
+                  course.name,
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: locationFontSize,
-                    fontWeight: FontWeight.w500,
-                    height: 1.2,
-                    letterSpacing: -0.1,
+                    fontSize: nameFontSize,
+                    fontWeight: FontWeight.w700,
+                    height: 1.15,
+                    letterSpacing: -0.2,
                     shadows: textShadow,
                   ),
-                  maxLines: isSmallCard ? 1 : 2,
+                  maxLines: isSmallCard ? 1 : (isNarrowCard ? 2 : 3),
                   overflow: TextOverflow.ellipsis,
                 ),
-              ],
-              // 教师姓名 - 辅助信息,字体较小
-              if (course.teacher.isNotEmpty) ...[
-                const SizedBox(height: 1.5),
-                Text(
-                  course.teacher,
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.95),
-                    fontSize: teacherFontSize,
-                    fontWeight: FontWeight.w400,
-                    height: 1.2,
-                    shadows: textShadow,
+                // 上课地点 - 次要信息
+                if (course.location.isNotEmpty && !isNarrowCard) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    'At ${course.location}',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: locationFontSize,
+                      fontWeight: FontWeight.w500,
+                      height: 1.2,
+                      letterSpacing: -0.1,
+                      shadows: textShadow,
+                    ),
+                    maxLines: isSmallCard ? 1 : 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
+                ],
+                // 教师姓名 - 辅助信息,字体较小
+                if (course.teacher.isNotEmpty && !isNarrowCard && !isSmallCard) ...[
+                  const SizedBox(height: 1.5),
+                  Text(
+                    course.teacher,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.95),
+                      fontSize: teacherFontSize,
+                      fontWeight: FontWeight.w400,
+                      height: 1.2,
+                      shadows: textShadow,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),

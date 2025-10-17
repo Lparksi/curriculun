@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/course.dart';
+import '../services/course_service.dart';
 
 /// 课程编辑对话框
 class CourseEditDialog extends StatefulWidget {
@@ -94,7 +95,7 @@ class _CourseEditDialogState extends State<CourseEditDialog> {
   }
 
   /// 保存课程
-  void _saveCourse() {
+  Future<void> _saveCourse() async {
     if (_formKey.currentState!.validate()) {
       final course = Course(
         name: _nameController.text.trim(),
@@ -110,8 +111,337 @@ class _CourseEditDialogState extends State<CourseEditDialog> {
             widget.course?.semesterId ?? widget.semesterId, // 保持原学期ID或使用新的学期ID
       );
 
-      Navigator.pop(context, course);
+      // 检查时间冲突
+      final conflicts = CourseService.getConflictingCourses(
+        widget.allCourses,
+        course,
+        excludeIndex: widget.courseIndex,
+      );
+
+      if (conflicts.isNotEmpty) {
+        // 显示冲突确认对话框
+        final result = await _showConflictDialog(course, conflicts);
+
+        if (result == null) {
+          return; // 用户取消保存
+        } else if (result == 'HIDE_NEW') {
+          // 用户选择隐藏新课程
+          final hiddenCourse = Course(
+            name: course.name,
+            location: course.location,
+            teacher: course.teacher,
+            weekday: course.weekday,
+            startSection: course.startSection,
+            duration: course.duration,
+            color: course.color,
+            startWeek: course.startWeek,
+            endWeek: course.endWeek,
+            semesterId: course.semesterId,
+            isHidden: true, // 设置为隐藏
+          );
+
+          if (mounted) {
+            Navigator.pop(context, hiddenCourse);
+          }
+          return;
+        } else if (result is String && result.startsWith('HIDE_')) {
+          // 用户选择隐藏某个冲突课程
+          final hideIndex = int.parse(result.substring(5));
+          final conflictToHide = conflicts[hideIndex];
+
+          // 返回特殊对象，包含新课程和要隐藏的课程
+          if (mounted) {
+            Navigator.pop(context, {
+              'newCourse': course,
+              'hideConflict': conflictToHide,
+            });
+          }
+          return;
+        }
+        // result == true: 用户选择仍然保存，继续正常流程
+      }
+
+      if (mounted) {
+        Navigator.pop(context, course);
+      }
     }
+  }
+
+  /// 显示冲突确认对话框
+  /// 返回值：null=取消, true=仍然保存, 'HIDE_XXX'=隐藏指定课程
+  Future<dynamic> _showConflictDialog(Course newCourse, List<Course> conflicts) async {
+    final weekdayNames = ['一', '二', '三', '四', '五', '六', '日'];
+    final weekdayText = '星期${weekdayNames[newCourse.weekday - 1]}';
+    final timeText = '第${newCourse.startSection}-${newCourse.startSection + newCourse.duration - 1}节';
+
+    return showDialog<dynamic>(
+      context: context,
+      builder: (context) => AlertDialog(
+        icon: const Icon(Icons.warning_amber_rounded, size: 48, color: Colors.orange),
+        title: const Text('检测到时间冲突'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 新课程信息（可点击隐藏）
+              InkWell(
+                onTap: () async {
+                  // 确认是否隐藏新课程
+                  final navigator = Navigator.of(context);
+                  final shouldHide = await showDialog<bool>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text('隐藏新课程'),
+                      content: Text(
+                        '确定要隐藏新课程"${newCourse.name}"吗？\n\n'
+                        '课程将被添加但设置为隐藏状态，不会在课程表中显示。您可以随时在课程管理页面恢复显示。',
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx, false),
+                          child: const Text('取消'),
+                        ),
+                        FilledButton(
+                          onPressed: () => Navigator.pop(ctx, true),
+                          child: const Text('隐藏'),
+                        ),
+                      ],
+                    ),
+                  );
+
+                  if (shouldHide == true) {
+                    // 返回特殊标记，表示要隐藏新课程
+                    navigator.pop('HIDE_NEW');
+                  }
+                },
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(Icons.add_circle_outline, size: 16),
+                                const SizedBox(width: 6),
+                                Text(
+                                  '待保存课程（点击可隐藏）',
+                                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              newCourse.name,
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                            ),
+                            const SizedBox(height: 4),
+                            Text('$weekdayText $timeText'),
+                            if (newCourse.location.isNotEmpty) Text('地点: ${newCourse.location}'),
+                            Text('周次: 第${newCourse.startWeek}-${newCourse.endWeek}周'),
+                          ],
+                        ),
+                      ),
+                      Icon(
+                        Icons.visibility_off_outlined,
+                        size: 20,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              // 冲突课程列表
+              Row(
+                children: [
+                  const Icon(Icons.error_outline, size: 16, color: Colors.red),
+                  const SizedBox(width: 6),
+                  Text(
+                    '与以下 ${conflicts.length} 门课程冲突',
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.red,
+                        ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              ...conflicts.asMap().entries.map((entry) {
+                final conflictIndex = entry.key;
+                final conflict = entry.value;
+                final conflictWeekday = '星期${weekdayNames[conflict.weekday - 1]}';
+                final conflictTime = '第${conflict.startSection}-${conflict.startSection + conflict.duration - 1}节';
+
+                return InkWell(
+                  onTap: () async {
+                    // 确认是否隐藏该课程
+                    final navigator = Navigator.of(context);
+                    final shouldHide = await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: const Text('隐藏冲突课程'),
+                        content: Text(
+                          '确定要隐藏课程"${conflict.name}"吗？\n\n'
+                          '隐藏后该课程不会在课程表中显示，但您可以随时在课程管理页面恢复显示。',
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx, false),
+                            child: const Text('取消'),
+                          ),
+                          FilledButton(
+                            onPressed: () => Navigator.pop(ctx, true),
+                            child: const Text('隐藏'),
+                          ),
+                        ],
+                      ),
+                    );
+
+                    if (shouldHide == true) {
+                      // 返回特殊标记，表示要隐藏指定索引的冲突课程
+                      navigator.pop('HIDE_$conflictIndex');
+                    }
+                  },
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.errorContainer.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: Theme.of(context).colorScheme.error.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: 4,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: conflict.color,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                conflict.name,
+                                style: const TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '$conflictWeekday $conflictTime',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+                                ),
+                              ),
+                              if (conflict.location.isNotEmpty)
+                                Text(
+                                  conflict.location,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                                  ),
+                                ),
+                              Text(
+                                '第${conflict.startWeek}-${conflict.endWeek}周',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Icon(
+                          Icons.visibility_off_outlined,
+                          size: 20,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.info_outline, size: 16),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            '您可以选择：',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.8),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      '• 仍然保存：所有课程并排显示\n'
+                      '• 隐藏新课程：点击上方待保存课程卡片\n'
+                      '• 隐藏冲突课程：点击下方冲突课程卡片',
+                      style: TextStyle(
+                        fontSize: 11,
+                        height: 1.5,
+                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, null),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.orange,
+            ),
+            child: const Text('仍然保存'),
+          ),
+        ],
+      ),
+    );
   }
 
   /// 删除课程
@@ -123,7 +453,7 @@ class _CourseEditDialogState extends State<CourseEditDialog> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('确认删除'),
+        title: const Text('确认删除课程'),
         content: Text(
           '确定要删除以下课程吗？\n\n'
           '课程名称：${_nameController.text}\n'

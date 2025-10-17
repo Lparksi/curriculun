@@ -78,7 +78,7 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
     if (result != null && mounted) {
       // 检查是否是删除操作
       if (result == 'DELETE' && index != null) {
-        await _deleteCourse(index);
+        await _deleteCourse(index, fromDialog: true);
         return;
       }
 
@@ -93,38 +93,65 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
             ).showSnackBar(const SnackBar(content: Text('课程已更新')));
           }
         } else {
-          // 检查时间冲突
-          if (CourseService.hasTimeConflict(_courses, result)) {
-            if (mounted) {
-              final confirm = await showDialog<bool>(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('时间冲突'),
-                  content: const Text('检测到该课程与已有课程时间冲突，是否仍要添加？'),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context, false),
-                      child: const Text('取消'),
-                    ),
-                    FilledButton(
-                      onPressed: () => Navigator.pop(context, true),
-                      child: const Text('仍要添加'),
-                    ),
-                  ],
-                ),
-              );
-
-              if (confirm != true) return;
-            }
-          }
-
-          // 添加新课程
+          // 添加新课程（冲突检测已在 CourseEditDialog 中完成）
           await CourseService.addCourse(result);
           if (mounted) {
+            final message = result.isHidden
+                ? '课程已添加（已隐藏）'
+                : '课程已添加';
             ScaffoldMessenger.of(
               context,
-            ).showSnackBar(const SnackBar(content: Text('课程已添加')));
+            ).showSnackBar(SnackBar(content: Text(message)));
           }
+        }
+
+        await _loadCourses();
+      } else if (result is Map<String, dynamic>) {
+        // 处理隐藏冲突课程的情况
+        final newCourse = result['newCourse'] as Course;
+        final conflictToHide = result['hideConflict'] as Course;
+
+        // 找到要隐藏的课程在列表中的索引
+        final hideIndex = _courses.indexWhere((c) =>
+            c.name == conflictToHide.name &&
+            c.weekday == conflictToHide.weekday &&
+            c.startSection == conflictToHide.startSection &&
+            c.startWeek == conflictToHide.startWeek &&
+            c.endWeek == conflictToHide.endWeek);
+
+        if (hideIndex != -1) {
+          // 创建隐藏版本的冲突课程
+          final hiddenCourse = Course(
+            name: conflictToHide.name,
+            location: conflictToHide.location,
+            teacher: conflictToHide.teacher,
+            weekday: conflictToHide.weekday,
+            startSection: conflictToHide.startSection,
+            duration: conflictToHide.duration,
+            color: conflictToHide.color,
+            startWeek: conflictToHide.startWeek,
+            endWeek: conflictToHide.endWeek,
+            semesterId: conflictToHide.semesterId,
+            isHidden: true, // 设置为隐藏
+          );
+
+          // 更新被隐藏的课程
+          await CourseService.updateCourse(hideIndex, hiddenCourse);
+        }
+
+        // 添加新课程
+        if (index != null) {
+          await CourseService.updateCourse(index, newCourse);
+        } else {
+          await CourseService.addCourse(newCourse);
+        }
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('已保存新课程并隐藏"${conflictToHide.name}"'),
+            ),
+          );
         }
 
         await _loadCourses();
@@ -132,39 +159,44 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
     }
   }
 
-  /// 删除课程
-  Future<void> _deleteCourse(int index) async {
+  /// 删除课程（fromDialog参数表示是否来自编辑对话框）
+  Future<void> _deleteCourse(int index, {bool fromDialog = false}) async {
     final course = _courses[index];
     final weekdayNames = ['一', '二', '三', '四', '五', '六', '日'];
     final weekdayText = '星期${weekdayNames[course.weekday - 1]}';
 
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('确认删除'),
-        content: Text(
-          '确定要删除以下课程吗？\n\n'
-          '课程名称：${course.name}\n'
-          '上课时间：$weekdayText ${course.sectionRangeText}\n'
-          '上课地点：${course.location}',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
+    // 如果是来自编辑对话框,则跳过二次确认(在对话框中已确认过)
+    bool confirm = fromDialog;
+    if (!fromDialog) {
+      confirm = await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('确认删除课程'),
+              content: Text(
+                '确定要删除以下课程吗？\n\n'
+                '课程名称：${course.name}\n'
+                '上课时间：$weekdayText ${course.sectionRangeText}\n'
+                '上课地点：${course.location}',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('取消'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Theme.of(context).colorScheme.error,
+                  ),
+                  child: const Text('删除'),
+                ),
+              ],
             ),
-            child: const Text('删除'),
-          ),
-        ],
-      ),
-    );
+          ) ??
+          false;
+    }
 
-    if (confirm == true && mounted) {
+    if (confirm && mounted) {
       await CourseService.deleteCourse(index);
 
       if (mounted) {
@@ -265,7 +297,7 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('确认删除'),
+        title: const Text('确认删除课程'),
         content: Text('确定要删除选中的 ${_selectedIndices.length} 门课程吗？'),
         actions: [
           TextButton(
@@ -676,6 +708,20 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                     ),
                   ),
 
+                  // 隐藏/显示切换按钮
+                  if (!_isMultiSelectMode)
+                    IconButton(
+                      icon: Icon(
+                        course.isHidden
+                            ? Icons.visibility_off
+                            : Icons.visibility,
+                        color: course.isHidden
+                            ? Theme.of(context).colorScheme.error
+                            : Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                      onPressed: () => _toggleCourseVisibility(index),
+                      tooltip: course.isHidden ? '显示课程' : '隐藏课程',
+                    ),
                   // 编辑按钮（非多选模式显示）
                   if (!_isMultiSelectMode)
                     IconButton(
@@ -691,5 +737,44 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
         ),
       ),
     );
+  }
+
+  /// 切换课程的隐藏/显示状态
+  Future<void> _toggleCourseVisibility(int index) async {
+    final course = _courses[index];
+    final newCourse = Course(
+      name: course.name,
+      location: course.location,
+      teacher: course.teacher,
+      weekday: course.weekday,
+      startSection: course.startSection,
+      duration: course.duration,
+      color: course.color,
+      startWeek: course.startWeek,
+      endWeek: course.endWeek,
+      semesterId: course.semesterId,
+      isHidden: !course.isHidden, // 切换隐藏状态
+    );
+
+    await CourseService.updateCourse(index, newCourse);
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            newCourse.isHidden ? '已隐藏"${course.name}"' : '已显示"${course.name}"',
+          ),
+          action: SnackBarAction(
+            label: '撤销',
+            onPressed: () async {
+              await CourseService.updateCourse(index, course);
+              await _loadCourses();
+            },
+          ),
+        ),
+      );
+    }
+
+    await _loadCourses();
   }
 }
