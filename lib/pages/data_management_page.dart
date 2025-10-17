@@ -187,7 +187,7 @@ class _DataManagementPageState extends State<DataManagementPage> {
             Text(
               kIsWeb
                   ? '• Web 端：导出将下载 JSON 文件到本地'
-                  : '• 移动端：导出将打开分享对话框',
+                  : '• 移动端：导出将生成 JSON 文件并打开分享',
               style: TextStyle(color: colorScheme.onSurface),
             ),
             const SizedBox(height: 4),
@@ -309,13 +309,29 @@ class _DataManagementPageState extends State<DataManagementPage> {
         // Web 平台：触发浏览器下载
         WebFileUtils.downloadFile(content, fileName);
       } else {
-        // 移动/桌面平台：使用分享功能
+        // 移动/桌面平台：先保存为临时文件，然后分享文件
+        final directory = await Directory.systemTemp.createTemp('curriculum_export_');
+        final filePath = '${directory.path}/$fileName';
+        final file = File(filePath);
+        await file.writeAsString(content);
+
+        // 使用 XFile 分享文件
+        final xFile = XFile(filePath);
         await SharePlus.instance.share(
           ShareParams(
-            text: content,
-            subject: '课程表数据导出 - $fileName',
+            files: [xFile],
+            subject: '课程表数据导出',
           ),
         );
+
+        // 清理临时文件（延迟清理以确保分享完成）
+        Future.delayed(const Duration(seconds: 5), () {
+          try {
+            directory.deleteSync(recursive: true);
+          } catch (e) {
+            debugPrint('清理临时文件失败: $e');
+          }
+        });
       }
     } catch (e) {
       rethrow;
