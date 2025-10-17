@@ -94,6 +94,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF6BA3FF)),
         useMaterial3: true,
         scaffoldBackgroundColor: Colors.white,
+        snackBarTheme: const SnackBarThemeData(
+          behavior: SnackBarBehavior.floating,
+          contentTextStyle: TextStyle(fontSize: 14),
+        ),
       ),
       darkTheme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
@@ -101,6 +105,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           brightness: Brightness.dark,
         ),
         useMaterial3: true,
+        snackBarTheme: const SnackBarThemeData(
+          behavior: SnackBarBehavior.floating,
+          contentTextStyle: TextStyle(fontSize: 14),
+        ),
       ),
       themeMode: _themeMode,
       home: CourseTablePage(
