@@ -606,19 +606,27 @@ class _CourseTablePageState extends State<CourseTablePage> {
     final cardWidth = (cellWidth - 3) / conflictCount;
     final left = baseLeft + 1.5 + (cardWidth * conflictIndex);
 
-    // 根据卡片高度和宽度动态调整字体大小
+    // 根据卡片高度、宽度和冲突数动态调整字体大小和显示策略
     final isSmallCard = course.duration == 1;
-    final isNarrowCard = conflictCount > 1; // 有冲突时卡片变窄
+    final hasConflict = conflictCount > 1;
 
-    final nameFontSize = isNarrowCard
-        ? (isSmallCard ? 10.0 : 11.5)
+    // 优化字体大小策略：根据冲突数和卡片大小调整
+    final nameFontSize = hasConflict
+        ? (isSmallCard ? 9.5 : (conflictCount == 2 ? 11.0 : 10.0))
         : (isSmallCard ? 11.0 : 13.0);
-    final locationFontSize = isNarrowCard
-        ? (isSmallCard ? 8.0 : 9.0)
+    final locationFontSize = hasConflict
+        ? (isSmallCard ? 8.0 : (conflictCount == 2 ? 9.0 : 8.5))
         : (isSmallCard ? 9.0 : 10.0);
-    final teacherFontSize = isNarrowCard
+    final teacherFontSize = hasConflict
         ? (isSmallCard ? 7.5 : 8.5)
         : (isSmallCard ? 8.5 : 9.5);
+
+    // 优化显示策略：充分利用空间显示内容
+    final showLocation = course.location.isNotEmpty &&
+        (course.duration >= 2); // 2节以上都显示地点，无论是否冲突
+    final showTeacher = course.teacher.isNotEmpty &&
+        course.duration >= 3 &&
+        conflictCount <= 2; // 3节以上且冲突数≤2显示教师
 
     // 文字阴影增强对比度
     final textShadow = [
@@ -630,7 +638,6 @@ class _CourseTablePageState extends State<CourseTablePage> {
     ];
 
     // 冲突提示边框
-    final hasConflict = conflictCount > 1;
     final borderDecoration = hasConflict
         ? BoxDecoration(
             border: Border.all(
@@ -640,6 +647,12 @@ class _CourseTablePageState extends State<CourseTablePage> {
             borderRadius: BorderRadius.circular(6),
           )
         : null;
+
+    // 根据冲突数和卡片大小优化内边距
+    final horizontalPadding = hasConflict
+        ? (conflictCount == 2 ? 4.0 : 3.0) // 2门冲突稍微宽松一点
+        : 5.0;
+    final verticalPadding = isSmallCard ? 3.0 : 4.0;
 
     return Positioned(
       left: left,
@@ -662,8 +675,8 @@ class _CourseTablePageState extends State<CourseTablePage> {
               ),
             ),
             padding: EdgeInsets.symmetric(
-              horizontal: isNarrowCard ? 3 : 5,
-              vertical: 5,
+              horizontal: horizontalPadding,
+              vertical: verticalPadding,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -676,32 +689,42 @@ class _CourseTablePageState extends State<CourseTablePage> {
                     color: Colors.white,
                     fontSize: nameFontSize,
                     fontWeight: FontWeight.w700,
-                    height: 1.15,
+                    height: 1.1, // 减小行高，节省空间
                     letterSpacing: -0.2,
                     shadows: textShadow,
                   ),
-                  maxLines: isSmallCard ? 1 : (isNarrowCard ? 2 : 3),
+                  maxLines: isSmallCard
+                      ? 1
+                      : (hasConflict
+                          ? (course.duration >= 2
+                              ? 3
+                              : 2) // 2节以上冲突课程显示3行名称
+                          : 3),
                   overflow: TextOverflow.ellipsis,
                 ),
                 // 上课地点 - 次要信息
-                if (course.location.isNotEmpty && !isNarrowCard) ...[
-                  const SizedBox(height: 2),
+                if (showLocation) ...[
+                  const SizedBox(height: 1.5),
                   Text(
                     'At ${course.location}',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: locationFontSize,
                       fontWeight: FontWeight.w500,
-                      height: 1.2,
+                      height: 1.15, // 减小行高
                       letterSpacing: -0.1,
                       shadows: textShadow,
                     ),
-                    maxLines: isSmallCard ? 1 : 2,
+                    maxLines: isSmallCard
+                        ? 1
+                        : (hasConflict
+                            ? (course.duration >= 3 ? 2 : 1) // 3节以上显示2行地点
+                            : 2),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
                 // 教师姓名 - 辅助信息,字体较小
-                if (course.teacher.isNotEmpty && !isNarrowCard && !isSmallCard) ...[
+                if (showTeacher) ...[
                   const SizedBox(height: 1.5),
                   Text(
                     course.teacher,
