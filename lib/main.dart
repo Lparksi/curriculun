@@ -3,10 +3,17 @@ import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'pages/course_table_page.dart';
 import 'services/app_theme_service.dart';
+import 'services/firebase_init_service.dart';
+import 'services/firebase_consent_service.dart';
 import 'utils/material_icon_loader.dart';
+import 'widgets/firebase_consent_dialog.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // 条件初始化 Firebase（根据用户同意）
+  await FirebaseInitService.initialize();
+
   await MaterialIconLoader.ensureLoaded();
   final initialThemeMode = await AppThemeService.loadThemeMode();
   runApp(MyApp(initialThemeMode: initialThemeMode));
@@ -30,6 +37,24 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _themeMode = widget.initialThemeMode;
     _updateSystemUiOverlay();
+    _checkFirebaseConsent();
+  }
+
+  /// 检查是否需要显示 Firebase 同意对话框
+  Future<void> _checkFirebaseConsent() async {
+    final consent = await FirebaseConsentService.loadConsent();
+
+    // 如果已经显示过对话框，不再显示
+    if (consent.hasShown) {
+      return;
+    }
+
+    // 延迟显示对话框，确保 UI 已经构建完成
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+
+      await FirebaseConsentDialog.show(context);
+    });
   }
 
   void _onThemeModeChanged(ThemeMode mode) {

@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/course.dart';
 import '../utils/course_colors.dart';
+import '../utils/performance_tracker.dart';
 
 /// 课程数据服务
 /// 负责从 JSON 文件加载课程数据以及课程的CRUD操作
@@ -55,38 +56,51 @@ class CourseService {
 
   /// 加载所有课程列表（不筛选学期）
   static Future<List<Course>> loadAllCourses() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final savedJson = prefs.getString(_coursesKey);
+    return PerformanceTracker.instance.traceAsync(
+      traceName: PerformanceTraces.loadCourses,
+      operation: () async {
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          final savedJson = prefs.getString(_coursesKey);
 
-      if (savedJson != null && savedJson.isNotEmpty) {
-        // 从本地存储加载
-        final Map<String, dynamic> jsonData = json.decode(savedJson);
-        final List<dynamic> coursesJson = jsonData['courses'] as List<dynamic>;
+          if (savedJson != null && savedJson.isNotEmpty) {
+            // 从本地存储加载
+            final Map<String, dynamic> jsonData = json.decode(savedJson);
+            final List<dynamic> coursesJson =
+                jsonData['courses'] as List<dynamic>;
 
-        // 重置颜色管理器
-        CourseColorManager.reset();
+            // 重置颜色管理器
+            CourseColorManager.reset();
 
-        return coursesJson.map((courseJson) {
-          final course = courseJson as Map<String, dynamic>;
-          // 确保颜色存在
-          if (course['color'] == null || (course['color'] as String).isEmpty) {
-            final courseName = course['name'] as String;
-            course['color'] = Course.colorToHex(
-              CourseColorManager.getColorForCourse(courseName),
-            );
+            return coursesJson.map((courseJson) {
+              final course = courseJson as Map<String, dynamic>;
+              // 确保颜色存在
+              if (course['color'] == null ||
+                  (course['color'] as String).isEmpty) {
+                final courseName = course['name'] as String;
+                course['color'] = Course.colorToHex(
+                  CourseColorManager.getColorForCourse(courseName),
+                );
+              }
+              return Course.fromJson(course);
+            }).toList();
+          } else {
+            // 首次使用，从 assets 加载（暂不保存，让学期初始化完成后再保存）
+            final courses = await loadCoursesFromAssets();
+            return courses;
           }
-          return Course.fromJson(course);
-        }).toList();
-      } else {
-        // 首次使用，从 assets 加载（暂不保存，让学期初始化完成后再保存）
-        final courses = await loadCoursesFromAssets();
-        return courses;
-      }
-    } catch (e) {
-      debugPrint('加载课程数据失败: $e');
-      return [];
-    }
+        } catch (e) {
+          debugPrint('加载课程数据失败: $e');
+          return [];
+        }
+      },
+      attributes: {'source': 'local_storage'},
+      onComplete: (trace, result) {
+        // 添加课程数量指标
+        PerformanceTracker.instance
+            .addMetric(trace, 'course_count', result.length);
+      },
+    );
   }
 
   /// 按学期ID筛选课程
@@ -144,13 +158,19 @@ class CourseService {
 
   /// 保存课程列表到本地存储
   static Future<void> saveCourses(List<Course> courses) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final jsonString = exportCoursesToJson(courses);
-      await prefs.setString(_coursesKey, jsonString);
-    } catch (e) {
-      debugPrint('保存课程数据失败: $e');
-    }
+    return PerformanceTracker.instance.traceAsync(
+      traceName: PerformanceTraces.saveCourses,
+      operation: () async {
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          final jsonString = exportCoursesToJson(courses);
+          await prefs.setString(_coursesKey, jsonString);
+        } catch (e) {
+          debugPrint('保存课程数据失败: $e');
+        }
+      },
+      attributes: {'course_count': courses.length.toString()},
+    );
   }
 
   /// 添加课程

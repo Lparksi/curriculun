@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../models/course.dart';
 import '../models/semester_settings.dart';
 import '../models/time_table.dart';
+import 'config_version_manager.dart';
 import 'course_service.dart';
 import 'settings_service.dart';
 import 'time_table_service.dart';
@@ -31,7 +32,7 @@ class ExportService {
 
       // 构建导出数据结构
       final exportData = {
-        'version': '1.0.0', // 数据格式版本
+        'version': ConfigVersionManager.currentVersion, // 使用版本管理器的当前版本
         'exportTime': DateTime.now().toIso8601String(),
         'data': {
           'courses': courses.map((c) => c.toJson()).toList(),
@@ -56,7 +57,7 @@ class ExportService {
       final courses = await CourseService.loadAllCourses();
 
       final exportData = {
-        'version': '1.0.0',
+        'version': ConfigVersionManager.currentVersion,
         'exportTime': DateTime.now().toIso8601String(),
         'data': {
           'courses': courses.map((c) => c.toJson()).toList(),
@@ -82,7 +83,7 @@ class ExportService {
       final activeSemesterId = results[1] as String?;
 
       final exportData = {
-        'version': '1.0.0',
+        'version': ConfigVersionManager.currentVersion,
         'exportTime': DateTime.now().toIso8601String(),
         'data': {
           'semesters': semesters.map((s) => s.toJson()).toList(),
@@ -109,7 +110,7 @@ class ExportService {
       final activeTimeTableId = results[1] as String?;
 
       final exportData = {
-        'version': '1.0.0',
+        'version': ConfigVersionManager.currentVersion,
         'exportTime': DateTime.now().toIso8601String(),
         'data': {
           'timeTables': timeTables.map((t) => t.toJson()).toList(),
@@ -134,10 +135,10 @@ class ExportService {
   }) async {
     try {
       // 解析 JSON
-      final jsonData = jsonDecode(jsonString) as Map<String, dynamic>;
+      var jsonData = jsonDecode(jsonString) as Map<String, dynamic>;
 
-      // 验证数据格式
-      _validateImportData(jsonData);
+      // 验证并升级配置版本
+      jsonData = _validateAndUpgradeConfig(jsonData);
 
       final data = jsonData['data'] as Map<String, dynamic>;
 
@@ -254,8 +255,8 @@ class ExportService {
     bool merge = false,
   }) async {
     try {
-      final jsonData = jsonDecode(jsonString) as Map<String, dynamic>;
-      _validateImportData(jsonData);
+      var jsonData = jsonDecode(jsonString) as Map<String, dynamic>;
+      jsonData = _validateAndUpgradeConfig(jsonData);
 
       final data = jsonData['data'] as Map<String, dynamic>;
 
@@ -289,29 +290,57 @@ class ExportService {
     }
   }
 
-  /// 验证导入数据格式
-  static void _validateImportData(Map<String, dynamic> jsonData) {
+  /// 验证并升级配置文件
+  /// 返回升级后的配置数据
+  static Map<String, dynamic> _validateAndUpgradeConfig(
+    Map<String, dynamic> jsonData,
+  ) {
     // 检查必需字段
     if (!jsonData.containsKey('version')) {
-      throw FormatException('缺少版本信息');
+      // 兼容旧版本：如果没有版本号，假定为 1.0.0
+      debugPrint('配置文件缺少版本信息，假定为 v1.0.0');
+      jsonData['version'] = '1.0.0';
     }
 
     if (!jsonData.containsKey('data')) {
-      throw FormatException('缺少数据字段');
+      throw const FormatException('配置文件缺少 data 字段');
     }
 
     final version = jsonData['version'] as String;
 
-    // 检查版本兼容性
-    if (!_isVersionCompatible(version)) {
-      throw FormatException('不支持的数据格式版本: $version');
+    // 验证版本号格式
+    if (!ConfigVersionManager.isValidVersion(version)) {
+      throw FormatException('无效的版本号格式: $version');
     }
-  }
 
-  /// 检查版本兼容性
-  static bool _isVersionCompatible(String version) {
-    // 目前仅支持 1.0.0 版本
-    return version == '1.0.0';
+    // 检查版本兼容性
+    if (!ConfigVersionManager.isCompatible(version)) {
+      throw FormatException(
+        '不支持的配置文件版本: $version\n'
+        '支持的版本: ${ConfigVersionManager.supportedVersions.join(", ")}\n'
+        '当前版本: ${ConfigVersionManager.currentVersion}',
+      );
+    }
+
+    // 如果需要升级，执行升级
+    if (ConfigVersionManager.needsUpgrade(version)) {
+      debugPrint('检测到配置文件版本 $version 需要升级');
+      final upgradedData = ConfigVersionManager.upgradeConfig(jsonData, version);
+
+      // 生成升级报告
+      final report = ConfigVersionManager.generateMigrationReport(
+        version,
+        ConfigVersionManager.currentVersion,
+        jsonData,
+        upgradedData,
+      );
+      debugPrint(report);
+
+      return upgradedData;
+    }
+
+    debugPrint('配置文件版本 $version 无需升级');
+    return jsonData;
   }
 }
 

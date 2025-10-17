@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../models/course.dart';
 import '../models/semester_settings.dart';
 import '../models/time_table.dart';
@@ -10,6 +11,7 @@ import '../services/time_table_service.dart';
 import '../services/display_preferences_service.dart';
 import '../widgets/course_detail_dialog.dart';
 import '../widgets/course_table_share_dialog.dart';
+import '../widgets/firebase_consent_dialog.dart';
 import 'semester_management_page.dart';
 import 'course_management_page.dart';
 import 'time_table_management_page.dart';
@@ -936,6 +938,19 @@ class _CourseTablePageState extends State<CourseTablePage> {
             onChanged: _updateShowWeekend,
             contentPadding: const EdgeInsets.symmetric(horizontal: 16),
           ),
+          ListTile(
+            leading: Icon(
+              Icons.privacy_tip_outlined,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            title: const Text('隐私与数据使用'),
+            subtitle: const Text('管理 Firebase 功能设置'),
+            onTap: () {
+              Navigator.pop(context);
+              _showFirebaseConsentSettings();
+            },
+            trailing: const Icon(Icons.chevron_right),
+          ),
           const Divider(),
           // 设置和帮助分组
           _buildDrawerSection('其他'),
@@ -1063,12 +1078,25 @@ class _CourseTablePageState extends State<CourseTablePage> {
     );
   }
 
+  /// 显示 Firebase 隐私设置对话框
+  Future<void> _showFirebaseConsentSettings() async {
+    await FirebaseConsentDialog.show(
+      context,
+      isSettings: true,
+    );
+  }
+
   /// 显示关于对话框
-  void _showAboutDialog() {
+  Future<void> _showAboutDialog() async {
+    final packageInfo = await PackageInfo.fromPlatform();
+    final version = '${packageInfo.version}+${packageInfo.buildNumber}';
+
+    if (!mounted) return;
+
     showAboutDialog(
       context: context,
       applicationName: '课程表',
-      applicationVersion: '1.0.0+1',
+      applicationVersion: version,
       applicationIcon: const Icon(
         Icons.calendar_today,
         size: 48,

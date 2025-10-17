@@ -41,6 +41,14 @@ dependencies:
   path_provider: ^2.1.5
   share_plus: ^12.0.0
   web: ^1.1.1
+  webdav_client: ^1.2.2
+  package_info_plus: ^8.1.2
+
+  # Firebase Crashlytics
+  firebase_core: ^3.12.0
+  firebase_crashlytics: ^4.2.0
+  # Firebase Performance Monitoring
+  firebase_performance: ^0.10.0+8
 
 dev_dependencies:
   flutter_test:

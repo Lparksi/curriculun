@@ -1,116 +1,389 @@
 {
-  "projectName": "curriculum",
-  "description": "Flutter课程表应用 - 跨平台智能课程管理",
-  "version": "1.0.0+1",
-  "lastUpdated": "2025-10-16T14:50:51+08:00",
-  "scanner": "init-architect",
-  "coverage": {
-    "totalFiles": 15,
-    "scannedFiles": 15,
-    "coveragePercent": 100,
-    "modules": {
-      "identified": 5,
-      "documented": 5
-    }
-  },
+  "version": "1.0.0",
+  "projectName": "Curriculum - 课程表应用",
+  "scanTimestamp": "2025-10-17T15:06:44+08:00",
+  "projectRoot": "/home/parski/projects/curriculum/curriculum",
+  "flutterVersion": "3.35.6",
+  "dartVersion": "3.9.2",
+  "appVersion": "1.0.0+1",
+  "packageName": "com.lparksi.curriculum",
+  "platforms": ["Android", "Web"],
+  "description": "基于 Flutter 开发的跨平台智能课程管理应用，支持多学期管理、自定义时间表、WebDAV 云端备份、Firebase 监控等功能",
+  "rootDocumentation": "CLAUDE.md",
   "modules": [
     {
+      "name": "models",
       "path": "lib/models",
-      "name": "数据模型层",
-      "description": "核心数据结构定义,JSON序列化支持",
-      "files": [
-        "course.dart",
-        "semester_settings.dart",
-        "time_table.dart"
-      ],
       "documentation": "lib/models/CLAUDE.md",
+      "role": "数据模型层",
+      "description": "定义应用核心数据结构，提供 JSON 序列化/反序列化支持",
       "dependencies": [],
       "dependents": ["services", "pages", "widgets"],
-      "keyClasses": ["Course", "SectionTime", "SectionTimeTable (已废弃)", "SemesterSettings", "TimeTable"],
+      "files": [
+        {
+          "path": "lib/models/course.dart",
+          "type": "model",
+          "description": "课程实体，包含学期ID、隐藏标记等字段",
+          "keyClasses": ["Course", "SectionTimeTable (废弃)"],
+          "features": ["JSON序列化", "颜色处理", "时间范围计算", "学期关联"]
+        },
+        {
+          "path": "lib/models/semester_settings.dart",
+          "type": "model",
+          "description": "学期设置实体，支持多学期管理",
+          "keyClasses": ["SemesterSettings"],
+          "features": ["多学期支持", "日期范围计算", "copyWith方法", "相等性比较"]
+        },
+        {
+          "path": "lib/models/time_table.dart",
+          "type": "model",
+          "description": "时间表与节次时间模型",
+          "keyClasses": ["TimeTable", "SectionTime"],
+          "features": ["自定义时间表", "节次配置", "时间表验证"]
+        },
+        {
+          "path": "lib/models/webdav_config.dart",
+          "type": "model",
+          "description": "WebDAV 配置模型",
+          "keyClasses": ["WebDavConfig"],
+          "features": ["服务器配置", "认证信息", "备份路径", "配置验证"]
+        }
+      ],
       "coverage": {
+        "totalFiles": 4,
+        "scannedFiles": 4,
+        "percentage": 100,
         "hasInterface": true,
         "hasTests": false,
         "hasDataModel": true,
-        "missingItems": ["单元测试", "TimeTable 文档更新"]
+        "missingItems": ["单元测试"]
       }
     },
     {
+      "name": "services",
       "path": "lib/services",
-      "name": "业务逻辑服务层",
-      "description": "数据处理、外部资源交互、业务逻辑封装",
-      "files": [
-        "course_service.dart",
-        "settings_service.dart",
-        "time_table_service.dart"
-      ],
       "documentation": "lib/services/CLAUDE.md",
-      "dependencies": ["models", "utils", "shared_preferences"],
+      "role": "业务逻辑服务层",
+      "description": "封装业务逻辑、数据处理、外部资源交互",
+      "dependencies": ["models", "utils", "shared_preferences", "firebase", "webdav_client"],
       "dependents": ["pages"],
-      "keyClasses": ["CourseService", "SettingsService", "TimeTableService"],
-      "coverage": {
-        "hasInterface": true,
-        "hasTests": false,
-        "hasDataModel": false,
-        "missingItems": ["单元测试", "TimeTableService 文档更新"]
-      }
-    },
-    {
-      "path": "lib/pages",
-      "name": "页面组件层",
-      "description": "完整页面组件,页面级状态管理",
       "files": [
-        "course_table_page.dart",
-        "course_management_page.dart",
-        "semester_settings_page.dart",
-        "time_table_management_page.dart"
+        {
+          "path": "lib/services/course_service.dart",
+          "type": "service",
+          "description": "课程数据 CRUD 与冲突检测",
+          "keyMethods": ["loadAllCourses", "loadCoursesBySemester", "saveCourses", "hasTimeConflict", "getConflictingCourses"],
+          "features": ["学期筛选", "冲突检测", "颜色自动分配", "性能跟踪"]
+        },
+        {
+          "path": "lib/services/settings_service.dart",
+          "type": "service",
+          "description": "多学期管理与数据迁移",
+          "keyMethods": ["getAllSemesters", "getActiveSemester", "setActiveSemesterId", "addSemester", "updateSemester", "deleteSemester", "duplicateSemester"],
+          "features": ["多学期管理", "激活学期切换", "旧数据迁移", "性能跟踪"]
+        },
+        {
+          "path": "lib/services/time_table_service.dart",
+          "type": "service",
+          "description": "时间表管理服务",
+          "keyMethods": ["loadTimeTables", "getActiveTimeTable", "addTimeTable", "updateTimeTable", "deleteTimeTable", "duplicateTimeTable", "isValidTimeFormat"],
+          "features": ["时间表CRUD", "时间表切换", "时间格式验证", "时间范围验证"]
+        },
+        {
+          "path": "lib/services/export_service.dart",
+          "type": "service",
+          "description": "数据导入导出与版本管理",
+          "keyMethods": ["exportAllData", "exportCourses", "exportSemesters", "exportTimeTables", "importAllData", "importCourses"],
+          "features": ["全量导出", "选择性导出", "导入+版本管理", "合并/覆盖模式", "配置版本升级"]
+        },
+        {
+          "path": "lib/services/webdav_service.dart",
+          "type": "service",
+          "description": "WebDAV 云端备份服务",
+          "keyMethods": ["testConnection", "backupToWebDav", "restoreFromWebDav", "listBackupFiles", "deleteBackupFile", "previewBackupFile"],
+          "features": ["连接测试", "云端备份", "备份恢复", "文件列表", "文件预览"]
+        },
+        {
+          "path": "lib/services/webdav_config_service.dart",
+          "type": "service",
+          "description": "WebDAV 配置持久化",
+          "keyMethods": ["loadConfig", "saveConfig", "clearConfig"],
+          "features": ["配置存储", "配置加载"]
+        },
+        {
+          "path": "lib/services/app_theme_service.dart",
+          "type": "service",
+          "description": "应用主题模式持久化",
+          "keyMethods": ["loadThemeMode", "saveThemeMode"],
+          "features": ["主题持久化", "亮色/暗色/系统"]
+        },
+        {
+          "path": "lib/services/share_service.dart",
+          "type": "service",
+          "description": "分享功能平台抽象",
+          "keyMethods": ["share"],
+          "features": ["平台抽象", "Mobile/Web实现"]
+        },
+        {
+          "path": "lib/services/share_service_mobile.dart",
+          "type": "service",
+          "description": "移动端分享实现",
+          "features": ["share_plus集成"]
+        },
+        {
+          "path": "lib/services/share_service_web.dart",
+          "type": "service",
+          "description": "Web端分享实现",
+          "features": ["Web Share API", "降级方案"]
+        },
+        {
+          "path": "lib/services/display_preferences_service.dart",
+          "type": "service",
+          "description": "显示偏好设置服务",
+          "features": ["显示配置持久化"]
+        },
+        {
+          "path": "lib/services/config_version_manager.dart",
+          "type": "service",
+          "description": "配置版本管理",
+          "keyMethods": ["isValidVersion", "isCompatible", "needsUpgrade", "upgradeConfig", "generateMigrationReport"],
+          "features": ["版本解析", "版本比较", "配置升级", "迁移报告"]
+        }
       ],
-      "documentation": "lib/pages/CLAUDE.md",
-      "dependencies": ["models", "services", "widgets", "utils"],
-      "dependents": [],
-      "keyClasses": ["CourseTablePage", "CourseManagementPage", "SemesterSettingsPage", "TimeTableManagementPage"],
       "coverage": {
-        "hasInterface": true,
-        "hasTests": false,
-        "hasDataModel": false,
-        "missingItems": ["Widget测试", "TimeTableManagementPage 文档更新"]
-      }
-    },
-    {
-      "path": "lib/widgets",
-      "name": "可复用组件层",
-      "description": "Dialog、表单等可复用UI组件",
-      "files": [
-        "course_detail_dialog.dart",
-        "course_edit_dialog.dart",
-        "time_table_edit_dialog.dart"
-      ],
-      "documentation": "lib/widgets/CLAUDE.md",
-      "dependencies": ["models", "services"],
-      "dependents": ["pages"],
-      "keyClasses": ["CourseDetailDialog", "CourseEditDialog", "TimeTableEditDialog"],
-      "coverage": {
-        "hasInterface": true,
-        "hasTests": false,
-        "hasDataModel": false,
-        "missingItems": ["Widget测试", "TimeTableEditDialog 文档更新"]
-      }
-    },
-    {
-      "path": "lib/utils",
-      "name": "工具函数层",
-      "description": "通用工具、算法、常量定义",
-      "files": [
-        "course_colors.dart"
-      ],
-      "documentation": "lib/utils/CLAUDE.md",
-      "dependencies": [],
-      "dependents": ["services"],
-      "keyClasses": ["CourseColorManager"],
-      "coverage": {
+        "totalFiles": 12,
+        "scannedFiles": 12,
+        "percentage": 100,
         "hasInterface": true,
         "hasTests": false,
         "hasDataModel": false,
         "missingItems": ["单元测试"]
+      }
+    },
+    {
+      "name": "pages",
+      "path": "lib/pages",
+      "documentation": "lib/pages/CLAUDE.md",
+      "role": "页面组件层",
+      "description": "应用的完整页面组件，管理页面级状态和业务流程",
+      "dependencies": ["models", "services", "widgets", "utils"],
+      "dependents": [],
+      "files": [
+        {
+          "path": "lib/pages/course_table_page.dart",
+          "type": "page",
+          "description": "主课程表页面",
+          "features": ["周历展示", "周次切换", "课程详情", "主题切换", "性能跟踪"]
+        },
+        {
+          "path": "lib/pages/course_management_page.dart",
+          "type": "page",
+          "description": "课程管理页面",
+          "features": ["课程列表", "添加/编辑/删除", "冲突提示"]
+        },
+        {
+          "path": "lib/pages/semester_settings_page.dart",
+          "type": "page",
+          "description": "学期设置页面（单学期）",
+          "features": ["开始日期", "总周数", "重置功能"]
+        },
+        {
+          "path": "lib/pages/semester_management_page.dart",
+          "type": "page",
+          "description": "学期管理页面（多学期）",
+          "features": ["学期列表", "激活切换", "复制/删除"]
+        },
+        {
+          "path": "lib/pages/time_table_management_page.dart",
+          "type": "page",
+          "description": "时间表管理页面",
+          "features": ["时间表列表", "时间表切换", "编辑/删除/复制"]
+        },
+        {
+          "path": "lib/pages/data_management_page.dart",
+          "type": "page",
+          "description": "数据导入导出页面",
+          "features": ["数据导出", "数据导入", "版本管理", "合并/覆盖"]
+        },
+        {
+          "path": "lib/pages/webdav_backup_page.dart",
+          "type": "page",
+          "description": "WebDAV 备份页面",
+          "features": ["配置管理", "备份上传", "备份恢复", "文件列表"]
+        }
+      ],
+      "coverage": {
+        "totalFiles": 7,
+        "scannedFiles": 7,
+        "percentage": 100,
+        "hasInterface": true,
+        "hasTests": false,
+        "hasDataModel": false,
+        "missingItems": ["Widget测试"]
+      }
+    },
+    {
+      "name": "widgets",
+      "path": "lib/widgets",
+      "documentation": "lib/widgets/CLAUDE.md",
+      "role": "可复用组件层",
+      "description": "可复用的 UI 组件，Dialog、表单等",
+      "dependencies": ["models", "services"],
+      "dependents": ["pages"],
+      "files": [
+        {
+          "path": "lib/widgets/course_detail_dialog.dart",
+          "type": "widget",
+          "description": "课程详情对话框",
+          "features": ["课程信息展示", "主题色应用"]
+        },
+        {
+          "path": "lib/widgets/course_edit_dialog.dart",
+          "type": "widget",
+          "description": "课程编辑对话框",
+          "features": ["表单输入", "时间选择", "冲突检测", "冲突提示"]
+        },
+        {
+          "path": "lib/widgets/time_table_edit_dialog.dart",
+          "type": "widget",
+          "description": "时间表编辑对话框",
+          "features": ["名称编辑", "节次配置", "时间格式验证"]
+        },
+        {
+          "path": "lib/widgets/semester_edit_dialog.dart",
+          "type": "widget",
+          "description": "学期编辑对话框",
+          "features": ["学期名称", "日期选择", "周数设置"]
+        },
+        {
+          "path": "lib/widgets/course_table_share_dialog.dart",
+          "type": "widget",
+          "description": "课程表分享对话框",
+          "features": ["分享选项", "平台适配"]
+        }
+      ],
+      "coverage": {
+        "totalFiles": 5,
+        "scannedFiles": 5,
+        "percentage": 100,
+        "hasInterface": true,
+        "hasTests": false,
+        "hasDataModel": false,
+        "missingItems": ["Widget测试"]
+      }
+    },
+    {
+      "name": "utils",
+      "path": "lib/utils",
+      "documentation": "lib/utils/CLAUDE.md",
+      "role": "工具函数层",
+      "description": "提供通用工具、算法、常量定义",
+      "dependencies": ["firebase_performance"],
+      "dependents": ["services"],
+      "files": [
+        {
+          "path": "lib/utils/course_colors.dart",
+          "type": "utility",
+          "description": "课程颜色智能分配",
+          "keyClasses": ["CourseColorManager"],
+          "features": ["18色色盘", "同名课程一致性", "高辨识度", "WCAG AA级对比度"]
+        },
+        {
+          "path": "lib/utils/performance_tracker.dart",
+          "type": "utility",
+          "description": "Firebase 性能跟踪工具",
+          "keyClasses": ["PerformanceTracker", "PerformanceTraces"],
+          "features": ["自定义跟踪", "异步操作跟踪", "HTTP请求跟踪", "指标/属性添加"]
+        },
+        {
+          "path": "lib/utils/material_icon_loader.dart",
+          "type": "utility",
+          "description": "Material Icons 字体加载器",
+          "features": ["字体预加载", "跨平台一致性"]
+        },
+        {
+          "path": "lib/utils/web_file_utils.dart",
+          "type": "utility",
+          "description": "Web 文件操作工具",
+          "features": ["文件下载", "平台抽象"]
+        },
+        {
+          "path": "lib/utils/web_file_utils_web.dart",
+          "type": "utility",
+          "description": "Web 平台文件操作实现",
+          "features": ["Web下载实现"]
+        },
+        {
+          "path": "lib/utils/web_file_utils_stub.dart",
+          "type": "utility",
+          "description": "非Web平台桩实现",
+          "features": ["占位实现"]
+        }
+      ],
+      "coverage": {
+        "totalFiles": 6,
+        "scannedFiles": 6,
+        "percentage": 100,
+        "hasInterface": true,
+        "hasTests": false,
+        "hasDataModel": false,
+        "missingItems": ["单元测试"]
+      }
+    },
+    {
+      "name": "main",
+      "path": "lib",
+      "role": "应用入口",
+      "description": "应用主入口，Firebase 初始化、主题管理",
+      "dependencies": ["pages", "services", "utils", "firebase"],
+      "dependents": [],
+      "files": [
+        {
+          "path": "lib/main.dart",
+          "type": "entry",
+          "description": "应用入口文件",
+          "features": ["Firebase初始化", "Crashlytics配置", "主题管理", "国际化配置", "Material Design 3"]
+        }
+      ],
+      "coverage": {
+        "totalFiles": 1,
+        "scannedFiles": 1,
+        "percentage": 100,
+        "hasInterface": true,
+        "hasTests": false,
+        "hasDataModel": false,
+        "missingItems": []
+      }
+    },
+    {
+      "name": "assets",
+      "path": "assets",
+      "role": "资源文件",
+      "description": "应用静态资源",
+      "dependencies": [],
+      "dependents": ["services"],
+      "files": [
+        {
+          "path": "assets/courses.json",
+          "type": "asset",
+          "description": "默认课程数据（19门示例课程）",
+          "features": ["课程模板", "首次启动加载"]
+        },
+        {
+          "path": "assets/fonts/MaterialIcons-Regular.otf",
+          "type": "asset",
+          "description": "Material Icons 字体文件",
+          "features": ["跨平台图标", "预加载"]
+        }
+      ],
+      "coverage": {
+        "totalFiles": 2,
+        "scannedFiles": 2,
+        "percentage": 100,
+        "hasInterface": false,
+        "hasTests": false,
+        "hasDataModel": false,
+        "missingItems": []
       }
     }
   ],
@@ -121,80 +394,229 @@
       "服务层 (services)",
       "数据层 (models)",
       "工具层 (utils)",
-      "存储层 (SharedPreferences + Assets)"
+      "存储层 (SharedPreferences + Assets + WebDAV)"
     ],
     "stateManagement": "StatefulWidget + setState",
-    "dataFlow": "单向数据流 (上层依赖下层)"
+    "dataFlow": "单向数据流 (上层依赖下层)",
+    "patterns": [
+      "静态服务类（无需实例化）",
+      "不可变数据模型（final 字段 + copyWith）",
+      "错误容错（降级方案）",
+      "性能优化（const 构造函数、并行加载、Firebase 跟踪）"
+    ]
   },
-  "techStack": {
-    "framework": "Flutter 3.35.6",
-    "language": "Dart 3.9.2",
-    "platforms": ["Android", "Web"],
-    "dependencies": {
-      "shared_preferences": "^2.3.3",
-      "cupertino_icons": "^1.0.8",
-      "flutter_localizations": "SDK"
+  "keyTechnologies": [
+    {
+      "name": "Flutter",
+      "version": "SDK 3.9.2",
+      "usage": "跨平台UI框架"
     },
-    "devDependencies": {
-      "flutter_test": "SDK",
-      "flutter_lints": "^5.0.0"
+    {
+      "name": "Dart",
+      "version": "3.9.2",
+      "usage": "编程语言"
+    },
+    {
+      "name": "shared_preferences",
+      "version": "^2.3.3",
+      "usage": "本地键值对存储"
+    },
+    {
+      "name": "firebase_core",
+      "version": "^3.12.0",
+      "usage": "Firebase 核心库"
+    },
+    {
+      "name": "firebase_crashlytics",
+      "version": "^4.2.0",
+      "usage": "崩溃报告"
+    },
+    {
+      "name": "firebase_performance",
+      "version": "^0.10.0+8",
+      "usage": "性能监控"
+    },
+    {
+      "name": "webdav_client",
+      "version": "^1.2.2",
+      "usage": "WebDAV 云端备份"
+    },
+    {
+      "name": "share_plus",
+      "version": "^12.0.0",
+      "usage": "分享功能"
+    },
+    {
+      "name": "file_picker",
+      "version": "^10.3.3",
+      "usage": "文件选择"
     }
-  },
-  "features": [
-    "可视化周历课程表",
-    "学期设置与周次管理",
-    "课程CRUD操作",
-    "智能颜色分配(18色高辨识度)",
-    "本地数据持久化",
-    "时间冲突检测",
-    "多语言支持(中文/英文)",
-    "自定义时间表管理(新增)"
+  ],
+  "storageKeys": [
+    {
+      "key": "saved_courses",
+      "type": "JSON String",
+      "description": "课程数据列表"
+    },
+    {
+      "key": "semesters_list",
+      "type": "JSON String",
+      "description": "学期列表"
+    },
+    {
+      "key": "active_semester_id",
+      "type": "String",
+      "description": "当前激活的学期ID"
+    },
+    {
+      "key": "time_tables",
+      "type": "JSON String",
+      "description": "时间表列表"
+    },
+    {
+      "key": "active_time_table_id",
+      "type": "String",
+      "description": "当前激活的时间表ID"
+    },
+    {
+      "key": "app_theme_mode",
+      "type": "String",
+      "description": "应用主题模式 (light/dark/system)"
+    },
+    {
+      "key": "webdav_config",
+      "type": "JSON String",
+      "description": "WebDAV 配置"
+    },
+    {
+      "key": "semester_settings",
+      "type": "JSON String",
+      "description": "旧版单学期设置（已废弃，仅用于迁移）"
+    }
+  ],
+  "coreFeatures": [
+    {
+      "name": "多学期管理",
+      "description": "支持创建、切换、管理多个学期，自动关联课程",
+      "modules": ["models/semester_settings", "services/settings_service", "pages/semester_management_page"]
+    },
+    {
+      "name": "自定义时间表",
+      "description": "支持创建、编辑、切换不同学校的节次时间配置",
+      "modules": ["models/time_table", "services/time_table_service", "pages/time_table_management_page"]
+    },
+    {
+      "name": "智能颜色分配",
+      "description": "18色高辨识度色盘，同名课程自动使用相同颜色",
+      "modules": ["utils/course_colors"]
+    },
+    {
+      "name": "课程冲突检测",
+      "description": "添加/编辑课程时自动检测时间冲突，支持隐藏冲突课程",
+      "modules": ["services/course_service", "widgets/course_edit_dialog"]
+    },
+    {
+      "name": "数据导入导出",
+      "description": "支持全量/选择性导出，带版本管理，支持合并/覆盖导入",
+      "modules": ["services/export_service", "services/config_version_manager", "pages/data_management_page"]
+    },
+    {
+      "name": "WebDAV 云端备份",
+      "description": "支持 WebDAV 协议的云端备份与恢复，文件管理",
+      "modules": ["models/webdav_config", "services/webdav_service", "pages/webdav_backup_page"]
+    },
+    {
+      "name": "Firebase 集成",
+      "description": "崩溃报告、性能监控、自定义跟踪",
+      "modules": ["utils/performance_tracker", "main"]
+    },
+    {
+      "name": "主题切换",
+      "description": "支持亮色/暗色/跟随系统主题，持久化存储",
+      "modules": ["services/app_theme_service", "main"]
+    }
   ],
   "keyAlgorithms": [
     {
       "name": "周次计算",
-      "location": "lib/pages/course_table_page.dart:109-114",
-      "complexity": "O(1)"
+      "location": "lib/pages/course_table_page.dart",
+      "complexity": "O(1)",
+      "description": "根据学期开始日期和当前日期计算周次"
     },
     {
       "name": "课程时间冲突检测",
-      "location": "lib/services/course_service.dart:135-165",
-      "complexity": "O(n)"
+      "location": "lib/services/course_service.dart:208-240",
+      "complexity": "O(n)",
+      "description": "检查新课程是否与已有课程在时间上冲突"
+    },
+    {
+      "name": "获取冲突课程列表",
+      "location": "lib/services/course_service.dart:242-278",
+      "complexity": "O(n)",
+      "description": "返回所有与新课程冲突的课程列表"
     },
     {
       "name": "智能颜色分配",
       "location": "lib/utils/course_colors.dart:38-49",
-      "complexity": "O(1)"
+      "complexity": "O(1)",
+      "description": "为课程分配高辨识度颜色，同名课程使用相同颜色"
     },
     {
       "name": "时间格式验证",
-      "location": "lib/services/time_table_service.dart:171-174",
-      "complexity": "O(1)"
+      "location": "lib/services/time_table_service.dart:172-175",
+      "complexity": "O(1)",
+      "description": "验证时间字符串是否符合 HH:mm 格式"
+    },
+    {
+      "name": "配置版本升级",
+      "location": "lib/services/config_version_manager.dart",
+      "complexity": "O(1)",
+      "description": "自动检测并升级旧版本配置文件"
     }
   ],
-  "storageSchema": {
-    "sharedPreferences": {
-      "saved_courses": {
-        "type": "String (JSON)",
-        "description": "课程数据列表"
+  "coverage": {
+    "totalModules": 7,
+    "scannedModules": 7,
+    "totalFiles": 37,
+    "scannedFiles": 37,
+    "dartFiles": 37,
+    "assetFiles": 2,
+    "percentage": 100,
+    "detailedBreakdown": {
+      "models": {
+        "totalFiles": 4,
+        "scannedFiles": 4,
+        "percentage": 100
       },
-      "semester_settings": {
-        "type": "String (JSON)",
-        "description": "学期设置"
+      "services": {
+        "totalFiles": 12,
+        "scannedFiles": 12,
+        "percentage": 100
       },
-      "time_tables": {
-        "type": "String (JSON)",
-        "description": "时间表列表"
+      "pages": {
+        "totalFiles": 7,
+        "scannedFiles": 7,
+        "percentage": 100
       },
-      "active_time_table_id": {
-        "type": "String",
-        "description": "当前激活的时间表ID"
-      }
-    },
-    "assets": {
-      "courses.json": {
-        "type": "JSON",
-        "description": "默认课程数据模板(19门课程)"
+      "widgets": {
+        "totalFiles": 5,
+        "scannedFiles": 5,
+        "percentage": 100
+      },
+      "utils": {
+        "totalFiles": 6,
+        "scannedFiles": 6,
+        "percentage": 100
+      },
+      "main": {
+        "totalFiles": 1,
+        "scannedFiles": 1,
+        "percentage": 100
+      },
+      "assets": {
+        "totalFiles": 2,
+        "scannedFiles": 2,
+        "percentage": 100
       }
     }
   },
@@ -208,70 +630,119 @@
       "lib/utils/CLAUDE.md"
     ],
     "hasMermaidDiagrams": true,
-    "hasBreadcrumbs": true
+    "hasBreadcrumbs": true,
+    "lastUpdated": "2025-10-17T15:06:44+08:00"
   },
+  "ignoredPatterns": [
+    "node_modules/**",
+    ".git/**",
+    ".github/**",
+    "dist/**",
+    "build/**",
+    ".next/**",
+    "__pycache__/**",
+    "*.lock",
+    "*.log",
+    "*.bin",
+    "*.pdf",
+    "*.png",
+    "*.jpg",
+    "*.jpeg",
+    "*.gif",
+    "*.mp4",
+    "*.zip",
+    "*.tar",
+    "*.gz",
+    "android/app/google-services.json"
+  ],
   "gaps": [
     {
       "type": "testing",
       "severity": "high",
       "description": "缺少所有单元测试和Widget测试",
-      "recommendation": "为 services 层和 widgets 层添加测试覆盖"
-    },
-    {
-      "type": "documentation",
-      "severity": "medium",
-      "description": "模块级文档需要更新以包含 TimeTable 相关内容",
-      "affectedFiles": [
-        "lib/models/CLAUDE.md",
-        "lib/services/CLAUDE.md",
-        "lib/pages/CLAUDE.md",
-        "lib/widgets/CLAUDE.md"
-      ],
-      "recommendation": "更新各模块文档反映新增的自定义时间表功能"
+      "recommendation": "为 services 层和 widgets 层添加测试覆盖",
+      "affectedModules": ["models", "services", "pages", "widgets", "utils"]
     },
     {
       "type": "testing",
       "severity": "medium",
-      "description": "test/widget_test.dart 包含示例测试代码,与实际应用不匹配",
-      "recommendation": "删除示例测试或更新为实际测试用例"
+      "description": "test/widget_test.dart 包含示例测试代码，与实际应用不匹配",
+      "recommendation": "删除示例测试或更新为实际测试用例",
+      "affectedFiles": ["test/widget_test.dart"]
     }
   ],
-  "nextSteps": {
-    "immediate": [
-      "更新 lib/models/CLAUDE.md 包含 TimeTable 和 SectionTime 模型文档",
-      "更新 lib/services/CLAUDE.md 包含 TimeTableService 文档",
-      "更新 lib/pages/CLAUDE.md 包含 TimeTableManagementPage 文档",
-      "更新 lib/widgets/CLAUDE.md 包含 TimeTableEditDialog 文档"
-    ],
-    "recommendations": [
+  "nextSteps": [
+    "所有核心模块已完成 100% 扫描覆盖",
+    "根级和模块级文档已完整更新",
+    "建议定期更新文档以反映代码变更",
+    "可考虑为测试文件（test/）创建专门的文档"
+  ],
+  "recommendations": {
+    "testing": [
       "添加 TimeTableService 单元测试",
       "添加 CourseService.hasTimeConflict() 单元测试",
       "添加时间表时间验证的单元测试",
-      "实现课程数据导入/导出功能",
-      "优化大数据量场景的性能"
+      "添加 ExportService 导入导出测试",
+      "添加 WebDavService 备份恢复测试"
     ],
-    "potentialImprovements": [
+    "features": [
       "添加课程提醒功能",
       "支持时间表模板库",
       "添加课程笔记功能",
-      "支持多学期管理",
-      "云端同步支持",
-      "支持时间表分享功能"
+      "支持课程分组与标签",
+      "添加课程统计与分析"
+    ],
+    "performance": [
+      "优化大数据量场景的性能",
+      "实现虚拟滚动列表",
+      "优化课程表渲染性能",
+      "添加更多 Firebase Performance 跟踪点"
+    ],
+    "infrastructure": [
+      "添加 CI/CD 自动化测试",
+      "配置代码覆盖率检查",
+      "添加自动化构建流程",
+      "配置代码质量门禁"
     ]
   },
   "recentChanges": [
     {
+      "date": "2025-10-17",
+      "version": "v1.0.0+1",
+      "description": "完成 AI 上下文文档体系建设",
+      "changes": [
+        "更新根级 CLAUDE.md，新增多学期支持、WebDAV备份、Firebase集成等功能说明",
+        "所有模块级文档已存在并保持最新",
+        "生成 .claude/index.json 元数据索引",
+        "扫描覆盖率：核心模块 100%，总文件覆盖 37 个 Dart 源文件",
+        "新增核心功能文档化：多学期管理、WebDAV 备份、数据导入导出、Firebase 集成、主题切换、课程冲突处理"
+      ]
+    },
+    {
       "date": "2025-10-16",
+      "version": "v1.0.0+1",
       "description": "实现自定义时间表完整功能",
-      "files": [
-        "lib/models/time_table.dart (新增)",
-        "lib/services/time_table_service.dart (新增)",
-        "lib/pages/time_table_management_page.dart (新增)",
-        "lib/widgets/time_table_edit_dialog.dart (新增)",
-        "lib/pages/course_table_page.dart (更新)",
-        "lib/models/course.dart (更新)"
-      ],
-      "impact": "用户可以创建和管理多个自定义时间表,支持不同学校的节次时间配置"
+      "changes": [
+        "新增 TimeTable 和 SectionTime 数据模型",
+        "新增 TimeTableService 服务层",
+        "新增 TimeTableManagementPage 页面",
+        "新增 TimeTableEditDialog 组件",
+        "支持创建、编辑、删除、复制时间表",
+        "支持多时间表切换",
+        "Course 模型更新为使用 TimeTable",
+        "优化课程表页面加载性能（并行加载数据）",
+        "废弃 SectionTimeTable 常量类"
+      ]
     }
+  ],
+  "notes": [
+    "项目已完成 AI 上下文文档体系建设",
+    "核心功能包括多学期管理、自定义时间表、WebDAV 备份、Firebase 集成等",
+    "所有模块已完成详细文档化，覆盖率 100%",
+    "遵循 Flutter 最佳实践和 Material Design 3 设计规范",
+    "使用 Firebase Crashlytics 和 Performance Monitoring 保障应用质量",
+    "支持 Android 和 Web 双平台",
+    "本地存储使用 SharedPreferences，云端备份使用 WebDAV 协议",
+    "配置版本管理支持自动升级和数据迁移"
   ]
 }
