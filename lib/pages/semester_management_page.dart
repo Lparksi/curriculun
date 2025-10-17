@@ -60,9 +60,11 @@ class _SemesterManagementPageState extends State<SemesterManagementPage> {
 
   /// 显示新建/编辑学期对话框
   Future<void> _showEditDialog([SemesterSettings? semester]) async {
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (context) => SemesterEditDialog(semester: semester),
+    final result = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (context) => SemesterEditDialog(semester: semester),
+        fullscreenDialog: true,
+      ),
     );
 
     if (result == true) {

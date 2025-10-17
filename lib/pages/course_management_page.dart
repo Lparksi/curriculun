@@ -65,13 +65,15 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
 
   /// 显示课程编辑对话框
   Future<void> _showEditDialog({Course? course, int? index}) async {
-    final result = await showDialog<dynamic>(
-      context: context,
-      builder: (context) => CourseEditDialog(
-        course: course,
-        courseIndex: index,
-        allCourses: _courses,
-        semesterId: _currentSemester?.id, // 传递当前学期ID
+    final result = await Navigator.of(context).push<dynamic>(
+      MaterialPageRoute(
+        builder: (context) => CourseEditDialog(
+          course: course,
+          courseIndex: index,
+          allCourses: _courses,
+          semesterId: _currentSemester?.id, // 传递当前学期ID
+        ),
+        fullscreenDialog: true,
       ),
     );
 

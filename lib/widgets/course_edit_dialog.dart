@@ -487,246 +487,224 @@ class _CourseEditDialogState extends State<CourseEditDialog> {
     final isEditing = widget.course != null;
     final colorScheme = Theme.of(context).colorScheme;
 
-    return Dialog(
-      child: Container(
-        constraints: const BoxConstraints(maxWidth: 600, maxHeight: 700),
-        child: Column(
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(isEditing ? '编辑课程' : '新增课程'),
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () => Navigator.pop(context),
+        ),
+        actions: [
+          // 删除按钮（仅编辑模式显示）
+          if (isEditing)
+            IconButton(
+              icon: const Icon(Icons.delete_outline),
+              onPressed: _deleteCourse,
+              tooltip: '删除课程',
+            ),
+          const SizedBox(width: 8),
+        ],
+      ),
+      body: Form(
+        key: _formKey,
+        child: ListView(
+          padding: const EdgeInsets.all(16),
           children: [
-            // 标题栏
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: colorScheme.primaryContainer,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(28),
-                  topRight: Radius.circular(28),
-                ),
+            // 课程名称（支持自动完成）
+            _buildCourseNameField(),
+            const SizedBox(height: 16),
+
+            // 上课地点
+            TextFormField(
+              controller: _locationController,
+              decoration: const InputDecoration(
+                labelText: '上课地点',
+                prefixIcon: Icon(Icons.location_on),
+                border: OutlineInputBorder(),
               ),
-              child: Row(
-                children: [
-                  Icon(
-                    isEditing ? Icons.edit : Icons.add,
-                    color: colorScheme.onPrimaryContainer,
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    isEditing ? '编辑课程' : '新增课程',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: colorScheme.onPrimaryContainer,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(context),
-                    color: colorScheme.onPrimaryContainer,
-                  ),
-                ],
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return '请输入上课地点';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 16),
+
+            // 教师姓名
+            TextFormField(
+              controller: _teacherController,
+              decoration: const InputDecoration(
+                labelText: '教师姓名',
+                prefixIcon: Icon(Icons.person),
+                border: OutlineInputBorder(),
+                hintText: '选填',
               ),
             ),
+            const SizedBox(height: 24),
 
-            // 表单内容
-            Expanded(
-              child: Form(
-                key: _formKey,
-                child: ListView(
-                  padding: const EdgeInsets.all(16),
-                  children: [
-                    // 课程名称（支持自动完成）
-                    _buildCourseNameField(),
-                    const SizedBox(height: 16),
+            // 星期选择
+            _buildDropdownField(
+              label: '星期',
+              icon: Icons.calendar_today,
+              value: _weekday,
+              items: List.generate(7, (index) {
+                final day = index + 1;
+                return DropdownMenuItem(
+                  value: day,
+                  child: Text('星期${'一二三四五六日'[index]}'),
+                );
+              }),
+              onChanged: (value) {
+                setState(() {
+                  _weekday = value!;
+                });
+              },
+            ),
+            const SizedBox(height: 16),
 
-                    // 上课地点
-                    TextFormField(
-                      controller: _locationController,
-                      decoration: const InputDecoration(
-                        labelText: '上课地点',
-                        prefixIcon: Icon(Icons.location_on),
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return '请输入上课地点';
+            // 开始节次和持续节数
+            Row(
+              children: [
+                Expanded(
+                  child: _buildDropdownField(
+                    label: '开始节次',
+                    icon: Icons.access_time,
+                    value: _startSection,
+                    items: List.generate(10, (index) {
+                      final section = index + 1;
+                      return DropdownMenuItem(
+                        value: section,
+                        child: Text('第$section节'),
+                      );
+                    }),
+                    onChanged: (value) {
+                      setState(() {
+                        _startSection = value!;
+                      });
+                    },
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _buildDropdownField(
+                    label: '持续节数',
+                    icon: Icons.timelapse,
+                    value: _duration,
+                    items: List.generate(5, (index) {
+                      final dur = index + 1;
+                      return DropdownMenuItem(
+                        value: dur,
+                        child: Text('$dur节'),
+                      );
+                    }),
+                    onChanged: (value) {
+                      setState(() {
+                        _duration = value!;
+                      });
+                    },
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // 周次范围
+            Row(
+              children: [
+                Expanded(
+                  child: _buildDropdownField(
+                    label: '开始周次',
+                    icon: Icons.event_note,
+                    value: _startWeek,
+                    items: List.generate(30, (index) {
+                      final week = index + 1;
+                      return DropdownMenuItem(
+                        value: week,
+                        child: Text('第$week周'),
+                      );
+                    }),
+                    onChanged: (value) {
+                      setState(() {
+                        _startWeek = value!;
+                        if (_endWeek < _startWeek) {
+                          _endWeek = _startWeek;
                         }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
+                      });
+                    },
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _buildDropdownField(
+                    label: '结束周次',
+                    icon: Icons.event_available,
+                    value: _endWeek,
+                    items: List.generate(30, (index) {
+                      final week = index + 1;
+                      return DropdownMenuItem(
+                        value: week,
+                        enabled: week >= _startWeek,
+                        child: Text('第$week周'),
+                      );
+                    }),
+                    onChanged: (value) {
+                      setState(() {
+                        _endWeek = value!;
+                      });
+                    },
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
 
-                    // 教师姓名
-                    TextFormField(
-                      controller: _teacherController,
-                      decoration: const InputDecoration(
-                        labelText: '教师姓名',
-                        prefixIcon: Icon(Icons.person),
-                        border: OutlineInputBorder(),
-                        hintText: '选填',
-                      ),
-                    ),
-                    const SizedBox(height: 24),
+            // 颜色选择
+            _buildColorPicker(),
 
-                    // 星期选择
-                    _buildDropdownField(
-                      label: '星期',
-                      icon: Icons.calendar_today,
-                      value: _weekday,
-                      items: List.generate(7, (index) {
-                        final day = index + 1;
-                        return DropdownMenuItem(
-                          value: day,
-                          child: Text('星期${'一二三四五六日'[index]}'),
-                        );
-                      }),
-                      onChanged: (value) {
-                        setState(() {
-                          _weekday = value!;
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 16),
-
-                    // 开始节次和持续节数
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildDropdownField(
-                            label: '开始节次',
-                            icon: Icons.access_time,
-                            value: _startSection,
-                            items: List.generate(10, (index) {
-                              final section = index + 1;
-                              return DropdownMenuItem(
-                                value: section,
-                                child: Text('第$section节'),
-                              );
-                            }),
-                            onChanged: (value) {
-                              setState(() {
-                                _startSection = value!;
-                              });
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: _buildDropdownField(
-                            label: '持续节数',
-                            icon: Icons.timelapse,
-                            value: _duration,
-                            items: List.generate(5, (index) {
-                              final dur = index + 1;
-                              return DropdownMenuItem(
-                                value: dur,
-                                child: Text('$dur节'),
-                              );
-                            }),
-                            onChanged: (value) {
-                              setState(() {
-                                _duration = value!;
-                              });
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-
-                    // 周次范围
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildDropdownField(
-                            label: '开始周次',
-                            icon: Icons.event_note,
-                            value: _startWeek,
-                            items: List.generate(30, (index) {
-                              final week = index + 1;
-                              return DropdownMenuItem(
-                                value: week,
-                                child: Text('第$week周'),
-                              );
-                            }),
-                            onChanged: (value) {
-                              setState(() {
-                                _startWeek = value!;
-                                if (_endWeek < _startWeek) {
-                                  _endWeek = _startWeek;
-                                }
-                              });
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: _buildDropdownField(
-                            label: '结束周次',
-                            icon: Icons.event_available,
-                            value: _endWeek,
-                            items: List.generate(30, (index) {
-                              final week = index + 1;
-                              return DropdownMenuItem(
-                                value: week,
-                                enabled: week >= _startWeek,
-                                child: Text('第$week周'),
-                              );
-                            }),
-                            onChanged: (value) {
-                              setState(() {
-                                _endWeek = value!;
-                              });
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-
-                    // 颜色选择
-                    _buildColorPicker(),
-                  ],
+            // 添加底部安全区域，避免被系统导航栏遮挡
+            const SizedBox(height: 80),
+          ],
+        ),
+      ),
+      bottomNavigationBar: SafeArea(
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: colorScheme.surface,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 10,
+                offset: const Offset(0, -2),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              // 取消按钮
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  child: const Text('取消'),
                 ),
               ),
-            ),
-
-            // 底部按钮
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: colorScheme.surface,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, -2),
+              const SizedBox(width: 12),
+              // 保存按钮
+              Expanded(
+                child: FilledButton(
+                  onPressed: _saveCourse,
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
-                ],
+                  child: const Text('保存'),
+                ),
               ),
-              child: Row(
-                children: [
-                  // 删除按钮（仅编辑模式显示）
-                  if (isEditing) ...[
-                    TextButton.icon(
-                      onPressed: _deleteCourse,
-                      icon: const Icon(Icons.delete_outline),
-                      label: const Text('删除'),
-                      style: TextButton.styleFrom(
-                        foregroundColor: colorScheme.error,
-                      ),
-                    ),
-                  ],
-                  const Spacer(),
-                  // 取消和保存按钮
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('取消'),
-                  ),
-                  const SizedBox(width: 12),
-                  FilledButton(onPressed: _saveCourse, child: const Text('保存')),
-                ],
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

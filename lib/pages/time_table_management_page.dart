@@ -48,9 +48,11 @@ class _TimeTableManagementPageState extends State<TimeTableManagementPage> {
 
   /// 新建时间表
   Future<void> _createTimeTable() async {
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (context) => const TimeTableEditDialog(),
+    final result = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (context) => const TimeTableEditDialog(),
+        fullscreenDialog: true,
+      ),
     );
 
     if (result == true) {
@@ -65,9 +67,11 @@ class _TimeTableManagementPageState extends State<TimeTableManagementPage> {
 
   /// 编辑时间表
   Future<void> _editTimeTable(TimeTable timeTable) async {
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (context) => TimeTableEditDialog(timeTable: timeTable),
+    final result = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (context) => TimeTableEditDialog(timeTable: timeTable),
+        fullscreenDialog: true,
+      ),
     );
 
     if (result == true) {

@@ -119,11 +119,19 @@ class _SemesterEditDialogState extends State<SemesterEditDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(widget.semester != null ? '编辑学期' : '新建学期'),
-      content: SingleChildScrollView(
+    final endDate = _startDate.add(Duration(days: _totalWeeks * 7));
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.semester != null ? '编辑学期' : '新建学期'),
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () => Navigator.of(context).pop(false),
+        ),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // 学期名称
@@ -137,40 +145,68 @@ class _SemesterEditDialogState extends State<SemesterEditDialog> {
               autofocus: widget.semester == null,
             ),
 
-            const SizedBox(height: 16),
+            const SizedBox(height: 24),
 
             // 学期开始日期
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.calendar_today),
-              title: const Text('学期开始日期'),
-              subtitle: Text(
-                '${_startDate.year}年${_startDate.month}月${_startDate.day}日',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
+            InkWell(
+              onTap: _selectStartDate,
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: Theme.of(context).colorScheme.outline,
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.calendar_today,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '学期开始日期',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${_startDate.year}年${_startDate.month}月${_startDate.day}日',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.chevron_right),
+                  ],
                 ),
               ),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: _selectStartDate,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-                side: BorderSide(color: Colors.grey.shade300),
-              ),
             ),
 
-            const SizedBox(height: 16),
+            const SizedBox(height: 24),
 
             // 学期总周数
-            const Text(
+            Text(
               '学期总周数',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+              style: Theme.of(context).textTheme.titleMedium,
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 16),
+
             Row(
               children: [
                 IconButton(
                   icon: const Icon(Icons.remove_circle_outline),
+                  iconSize: 32,
                   onPressed: _totalWeeks > 1
                       ? () {
                           setState(() {
@@ -185,10 +221,11 @@ class _SemesterEditDialogState extends State<SemesterEditDialog> {
                       Text(
                         '$_totalWeeks 周',
                         style: const TextStyle(
-                          fontSize: 20,
+                          fontSize: 24,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
+                      const SizedBox(height: 8),
                       Slider(
                         value: _totalWeeks.toDouble(),
                         min: 1,
@@ -206,6 +243,7 @@ class _SemesterEditDialogState extends State<SemesterEditDialog> {
                 ),
                 IconButton(
                   icon: const Icon(Icons.add_circle_outline),
+                  iconSize: 32,
                   onPressed: _totalWeeks < 30
                       ? () {
                           setState(() {
@@ -217,30 +255,44 @@ class _SemesterEditDialogState extends State<SemesterEditDialog> {
               ],
             ),
 
-            const SizedBox(height: 8),
+            const SizedBox(height: 24),
 
             // 学期结束日期提示
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: Theme.of(context).colorScheme.primaryContainer,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
                 children: [
                   Icon(
                     Icons.info_outline,
-                    size: 16,
+                    size: 20,
                     color: Theme.of(context).colorScheme.primary,
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 12),
                   Expanded(
-                    child: Text(
-                      '学期结束日期: ${_startDate.add(Duration(days: _totalWeeks * 7)).year}年${_startDate.add(Duration(days: _totalWeeks * 7)).month}月${_startDate.add(Duration(days: _totalWeeks * 7)).day}日',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Theme.of(context).colorScheme.onPrimaryContainer,
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '学期结束日期',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Theme.of(context).colorScheme.onPrimaryContainer.withValues(alpha: 0.7),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${endDate.year}年${endDate.month}月${endDate.day}日',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: Theme.of(context).colorScheme.onPrimaryContainer,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -249,22 +301,52 @@ class _SemesterEditDialogState extends State<SemesterEditDialog> {
           ],
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: _isLoading ? null : () => Navigator.of(context).pop(false),
-          child: const Text('取消'),
+      bottomNavigationBar: SafeArea(
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 10,
+                offset: const Offset(0, -2),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              // 取消按钮
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: _isLoading ? null : () => Navigator.of(context).pop(false),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  child: const Text('取消'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              // 保存按钮
+              Expanded(
+                child: FilledButton(
+                  onPressed: _isLoading ? null : _save,
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  child: _isLoading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('保存'),
+                ),
+              ),
+            ],
+          ),
         ),
-        ElevatedButton(
-          onPressed: _isLoading ? null : _save,
-          child: _isLoading
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('保存'),
-        ),
-      ],
+      ),
     );
   }
 }

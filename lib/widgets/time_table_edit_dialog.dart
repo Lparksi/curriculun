@@ -260,32 +260,35 @@ class _TimeTableEditDialogState extends State<TimeTableEditDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      child: Container(
-        width: MediaQuery.of(context).size.width * 0.9,
-        height: MediaQuery.of(context).size.height * 0.9,
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 标题栏
-            Row(
-              children: [
-                Text(
-                  _isEditing ? '编辑时间表' : '新建时间表',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-              ],
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(_isEditing ? '编辑时间表' : '新建时间表'),
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        actions: [
+          // 添加节次按钮
+          TextButton.icon(
+            onPressed: _addSection,
+            icon: const Icon(Icons.add, size: 18),
+            label: const Text('添加节次'),
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 8,
+              ),
             ),
-            const SizedBox(height: 16),
-
-            // 表单
-            Form(
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
+      body: Column(
+        children: [
+          // 表单
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Form(
               key: _formKey,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -308,92 +311,78 @@ class _TimeTableEditDialogState extends State<TimeTableEditDialog> {
                   const SizedBox(height: 16),
 
                   // 说明文字
-                  const Text(
-                    '节次时间设置',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '点击时间字段打开时间选择器 (24小时制)',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            // 节次列表
-            Expanded(
-              child: Column(
-                children: [
-                  // 节次数量提示
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.info_outline,
-                          size: 16,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          '共 ${_sections.length} 节课',
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.info_outline,
+                        size: 16,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '共 ${_sections.length} 节课 · 点击时间字段打开时间选择器 (24小时制)',
                           style: TextStyle(
                             fontSize: 12,
                             color: Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
                         ),
-                        const Spacer(),
-                        TextButton.icon(
-                          onPressed: _addSection,
-                          icon: const Icon(Icons.add, size: 18),
-                          label: const Text('添加节次'),
-                          style: TextButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 4,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // 节次列表
-                  Expanded(
-                    child: ListView.builder(
-                      itemCount: _sections.length,
-                      itemBuilder: (context, index) => _buildSectionItem(index),
-                    ),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 16),
+          ),
 
-            // 底部按钮
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(
+          // 节次列表
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              itemCount: _sections.length,
+              itemBuilder: (context, index) => _buildSectionItem(index),
+            ),
+          ),
+        ],
+      ),
+      bottomNavigationBar: SafeArea(
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 10,
+                offset: const Offset(0, -2),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              // 取消按钮
+              Expanded(
+                child: OutlinedButton(
                   onPressed: () => Navigator.of(context).pop(),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
                   child: const Text('取消'),
                 ),
-                const SizedBox(width: 12),
-                ElevatedButton(
+              ),
+              const SizedBox(width: 12),
+              // 保存按钮
+              Expanded(
+                child: FilledButton(
                   onPressed: _saveTimeTable,
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
                   child: const Text('保存'),
                 ),
-              ],
-            ),
-          ],
+              ),
+            ],
+          ),
         ),
       ),
     );
