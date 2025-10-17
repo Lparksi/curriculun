@@ -34,12 +34,16 @@ class PerformanceTracker {
   }
 
   /// 停止跟踪
-  Future<void> stopTrace(Trace? trace) async {
+  Future<void> stopTrace(Trace? trace, [String? traceName]) async {
     if (trace == null) return;
 
     try {
       await trace.stop();
-      debugPrint('✅ [Performance] 停止跟踪: ${trace.name}');
+      if (traceName != null) {
+        debugPrint('✅ [Performance] 停止跟踪: $traceName');
+      } else {
+        debugPrint('✅ [Performance] 跟踪已停止');
+      }
     } catch (e) {
       debugPrint('❌ [Performance] 停止跟踪失败: $e');
     }
@@ -111,7 +115,7 @@ class PerformanceTracker {
       }
       rethrow;
     } finally {
-      await stopTrace(trace);
+      await stopTrace(trace, traceName);
     }
   }
 
@@ -151,7 +155,7 @@ class PerformanceTracker {
       }
       rethrow;
     } finally {
-      await stopTrace(trace);
+      await stopTrace(trace, traceName);
     }
   }
 

@@ -745,3 +745,4 @@ final timeRange = course.getTimeRangeText(currentTimeTable);
 ---
 
 **文档维护:** 此文档随代码库更新,如有疑问请查阅模块级 CLAUDE.md 或源代码注释。
+- 没有经过明确允许，不要在创建任何文档到项目内
