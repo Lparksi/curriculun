@@ -133,11 +133,17 @@ jobs:
       # - app-x86_64-{debug|release}.apk (64位 x86，模拟器)
       - name: Build Split APK (Debug)
         if: needs.prepare.outputs.build_type == 'debug'
-        run: flutter build apk --debug --split-per-abi
+        run: |
+          flutter build apk --debug --split-per-abi \
+            --build-name="${{ needs.prepare.outputs.full_version }}" \
+            --build-number="${{ needs.prepare.outputs.version_code }}"
 
       - name: Build Split APK (Release)
         if: needs.prepare.outputs.build_type == 'release'
-        run: flutter build apk --release --split-per-abi
+        run: |
+          flutter build apk --release --split-per-abi \
+            --build-name="${{ needs.prepare.outputs.full_version }}" \
+            --build-number="${{ needs.prepare.outputs.version_code }}"
 
       - name: Rename Split APK
         run: |
@@ -206,11 +212,17 @@ jobs:
       # 适合不确定设备架构的用户
       - name: Build Universal APK (Debug)
         if: needs.prepare.outputs.build_type == 'debug'
-        run: flutter build apk --debug
+        run: |
+          flutter build apk --debug \
+            --build-name="${{ needs.prepare.outputs.full_version }}" \
+            --build-number="${{ needs.prepare.outputs.version_code }}"
 
       - name: Build Universal APK (Release)
         if: needs.prepare.outputs.build_type == 'release'
-        run: flutter build apk --release
+        run: |
+          flutter build apk --release \
+            --build-name="${{ needs.prepare.outputs.full_version }}" \
+            --build-number="${{ needs.prepare.outputs.version_code }}"
 
       - name: Rename Universal APK
         run: |
