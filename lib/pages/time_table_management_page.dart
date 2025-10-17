@@ -85,16 +85,18 @@ class _TimeTableManagementPageState extends State<TimeTableManagementPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('确认删除'),
+        title: const Text('确认删除时间表'),
         content: Text('确定要删除时间表 "${timeTable.name}" 吗?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
             child: const Text('取消'),
           ),
-          TextButton(
+          FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
             child: const Text('删除'),
           ),
         ],
