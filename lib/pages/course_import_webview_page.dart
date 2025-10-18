@@ -15,14 +15,32 @@ class CourseImportWebViewPage extends StatefulWidget {
 
 class _CourseImportWebViewPageState extends State<CourseImportWebViewPage> {
   late final WebViewController _controller;
+  late final TextEditingController _urlController;
+  late final FocusNode _urlFocusNode;
+
   bool _isLoading = true;
-  String _currentUrl = '';
+  String _currentUrl = 'https://www.baidu.com';
   double _loadingProgress = 0;
+  bool _canGoBack = false;
+  bool _canGoForward = false;
+  bool _isEditingUrl = false;
+
+  // 默认主页地址
+  static const String _defaultHomeUrl = 'https://www.baidu.com';
 
   @override
   void initState() {
     super.initState();
+    _urlController = TextEditingController(text: _currentUrl);
+    _urlFocusNode = FocusNode();
     _initializeWebView();
+  }
+
+  @override
+  void dispose() {
+    _urlController.dispose();
+    _urlFocusNode.dispose();
+    super.dispose();
   }
 
   /// 初始化 WebView
@@ -41,13 +59,21 @@ class _CourseImportWebViewPageState extends State<CourseImportWebViewPage> {
             setState(() {
               _isLoading = true;
               _currentUrl = url;
+              if (!_isEditingUrl) {
+                _urlController.text = url;
+              }
             });
+            _updateNavigationButtons();
           },
           onPageFinished: (String url) {
             setState(() {
               _isLoading = false;
               _currentUrl = url;
+              if (!_isEditingUrl) {
+                _urlController.text = url;
+              }
             });
+            _updateNavigationButtons();
           },
           onHttpError: (HttpResponseError error) {
             debugPrint('HTTP 错误: ${error.response?.statusCode}');
@@ -59,7 +85,46 @@ class _CourseImportWebViewPageState extends State<CourseImportWebViewPage> {
           },
         ),
       )
-      ..loadRequest(Uri.parse('https://www.baidu.com')); // 默认打开百度，用户可以自行导航
+      ..loadRequest(Uri.parse(_defaultHomeUrl));
+  }
+
+  /// 更新导航按钮状态
+  Future<void> _updateNavigationButtons() async {
+    final canGoBack = await _controller.canGoBack();
+    final canGoForward = await _controller.canGoForward();
+    setState(() {
+      _canGoBack = canGoBack;
+      _canGoForward = canGoForward;
+    });
+  }
+
+  /// 导航到指定 URL
+  void _navigateToUrl(String url) {
+    // 添加协议前缀（如果没有）
+    String finalUrl = url.trim();
+    if (finalUrl.isEmpty) {
+      _showErrorSnackBar('请输入有效的网址');
+      return;
+    }
+
+    if (!finalUrl.startsWith('http://') && !finalUrl.startsWith('https://')) {
+      finalUrl = 'https://$finalUrl';
+    }
+
+    try {
+      _controller.loadRequest(Uri.parse(finalUrl));
+      _urlFocusNode.unfocus();
+      setState(() {
+        _isEditingUrl = false;
+      });
+    } catch (e) {
+      _showErrorSnackBar('无效的网址: $e');
+    }
+  }
+
+  /// 返回主页
+  void _goHome() {
+    _controller.loadRequest(Uri.parse(_defaultHomeUrl));
   }
 
   /// 提取当前页面的 HTML
@@ -186,12 +251,6 @@ class _CourseImportWebViewPageState extends State<CourseImportWebViewPage> {
         title: const Text('从教务系统导入'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         actions: [
-          // 刷新按钮
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: '刷新页面',
-            onPressed: () => _controller.reload(),
-          ),
           // 提取 HTML 按钮
           IconButton(
             icon: const Icon(Icons.code),
@@ -202,12 +261,6 @@ class _CourseImportWebViewPageState extends State<CourseImportWebViewPage> {
           PopupMenuButton<String>(
             onSelected: (value) {
               switch (value) {
-                case 'forward':
-                  _controller.goForward();
-                  break;
-                case 'back':
-                  _controller.goBack();
-                  break;
                 case 'clear_cache':
                   _controller.clearCache();
                   _controller.clearLocalStorage();
@@ -216,26 +269,6 @@ class _CourseImportWebViewPageState extends State<CourseImportWebViewPage> {
               }
             },
             itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'back',
-                child: Row(
-                  children: [
-                    Icon(Icons.arrow_back),
-                    SizedBox(width: 8),
-                    Text('后退'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'forward',
-                child: Row(
-                  children: [
-                    Icon(Icons.arrow_forward),
-                    SizedBox(width: 8),
-                    Text('前进'),
-                  ],
-                ),
-              ),
               const PopupMenuItem(
                 value: 'clear_cache',
                 child: Row(
@@ -261,29 +294,15 @@ class _CourseImportWebViewPageState extends State<CourseImportWebViewPage> {
                 Theme.of(context).colorScheme.primary,
               ),
             ),
-          // URL 地址栏
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            color: Theme.of(context).colorScheme.surfaceContainerHighest,
-            child: Row(
-              children: [
-                const Icon(Icons.link, size: 16),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    _currentUrl,
-                    style: const TextStyle(fontSize: 12),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-          ),
+
+          // 导航栏
+          _buildNavigationBar(),
+
           // WebView
           Expanded(
             child: WebViewWidget(controller: _controller),
           ),
+
           // 底部提示
           Container(
             padding: const EdgeInsets.all(12),
@@ -307,6 +326,148 @@ class _CourseImportWebViewPageState extends State<CourseImportWebViewPage> {
                 ),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 构建导航栏
+  Widget _buildNavigationBar() {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      decoration: BoxDecoration(
+        color: isDark
+            ? colorScheme.surfaceContainerHighest
+            : colorScheme.surfaceContainerHigh,
+        border: Border(
+          bottom: BorderSide(
+            color: colorScheme.outlineVariant,
+            width: 1,
+          ),
+        ),
+      ),
+      child: Column(
+        children: [
+          // 第一行：导航按钮 + 地址栏
+          Row(
+            children: [
+              // 后退按钮
+              IconButton(
+                icon: const Icon(Icons.arrow_back),
+                iconSize: 20,
+                tooltip: '后退',
+                onPressed: _canGoBack
+                    ? () async {
+                        await _controller.goBack();
+                        _updateNavigationButtons();
+                      }
+                    : null,
+              ),
+              // 前进按钮
+              IconButton(
+                icon: const Icon(Icons.arrow_forward),
+                iconSize: 20,
+                tooltip: '前进',
+                onPressed: _canGoForward
+                    ? () async {
+                        await _controller.goForward();
+                        _updateNavigationButtons();
+                      }
+                    : null,
+              ),
+              // 刷新按钮
+              IconButton(
+                icon: const Icon(Icons.refresh),
+                iconSize: 20,
+                tooltip: '刷新',
+                onPressed: () => _controller.reload(),
+              ),
+              // 主页按钮
+              IconButton(
+                icon: const Icon(Icons.home),
+                iconSize: 20,
+                tooltip: '主页',
+                onPressed: _goHome,
+              ),
+              const SizedBox(width: 8),
+              // 地址栏
+              Expanded(
+                child: Container(
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: colorScheme.surface,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(
+                      color: _isEditingUrl
+                          ? colorScheme.primary
+                          : colorScheme.outline.withValues(alpha: 0.3),
+                      width: _isEditingUrl ? 2 : 1,
+                    ),
+                  ),
+                  child: TextField(
+                    controller: _urlController,
+                    focusNode: _urlFocusNode,
+                    style: const TextStyle(fontSize: 13),
+                    decoration: InputDecoration(
+                      hintText: '输入教务系统网址',
+                      hintStyle: TextStyle(
+                        fontSize: 13,
+                        color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                      ),
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      prefixIcon: Icon(
+                        _currentUrl.startsWith('https')
+                            ? Icons.lock
+                            : Icons.lock_open,
+                        size: 16,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                      prefixIconConstraints: const BoxConstraints(
+                        minWidth: 36,
+                        minHeight: 36,
+                      ),
+                    ),
+                    textInputAction: TextInputAction.go,
+                    keyboardType: TextInputType.url,
+                    onTap: () {
+                      setState(() {
+                        _isEditingUrl = true;
+                      });
+                      _urlController.selection = TextSelection(
+                        baseOffset: 0,
+                        extentOffset: _urlController.text.length,
+                      );
+                    },
+                    onSubmitted: (value) {
+                      _navigateToUrl(value);
+                    },
+                    onEditingComplete: () {
+                      _navigateToUrl(_urlController.text);
+                    },
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              // 前往按钮
+              if (_isEditingUrl)
+                IconButton(
+                  icon: const Icon(Icons.arrow_forward_rounded),
+                  iconSize: 20,
+                  tooltip: '前往',
+                  color: colorScheme.primary,
+                  onPressed: () {
+                    _navigateToUrl(_urlController.text);
+                  },
+                ),
+            ],
           ),
         ],
       ),
