@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/firebase_consent.dart';
 import '../services/firebase_consent_service.dart';
+import '../pages/privacy_policy_page.dart';
 
 /// Firebase 功能同意对话框
 ///
@@ -140,6 +141,21 @@ class _FirebaseConsentDialogState extends State<FirebaseConsentDialog> {
                     ),
                   ),
                 ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            // 隐私政策链接
+            Align(
+              alignment: Alignment.center,
+              child: TextButton.icon(
+                onPressed: () {
+                  PrivacyPolicyPage.show(context);
+                },
+                icon: Icon(Icons.policy_outlined, size: 18),
+                label: const Text('查看完整隐私政策'),
+                style: TextButton.styleFrom(
+                  foregroundColor: colorScheme.primary,
+                ),
               ),
             ),
             // 添加底部安全区域

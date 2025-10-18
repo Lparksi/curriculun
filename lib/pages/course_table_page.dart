@@ -18,6 +18,7 @@ import 'semester_management_page.dart';
 import 'course_management_page.dart';
 import 'time_table_management_page.dart';
 import 'data_management_page.dart';
+import 'privacy_policy_page.dart';
 
 /// 课程表主页面
 class CourseTablePage extends StatefulWidget {
@@ -651,9 +652,7 @@ class _CourseTablePageState extends State<CourseTablePage> {
     // 优化显示策略：充分利用空间显示内容
     final showLocation = course.location.isNotEmpty &&
         (course.duration >= 2); // 2节以上都显示地点，无论是否冲突
-    final showTeacher = course.teacher.isNotEmpty &&
-        course.duration >= 3 &&
-        conflictCount <= 2; // 3节以上且冲突数≤2显示教师
+    final showTeacher = course.teacher.isNotEmpty; // 始终显示教师（只要有教师信息）
 
     // 文字阴影增强对比度
     final textShadow = [
@@ -973,6 +972,19 @@ class _CourseTablePageState extends State<CourseTablePage> {
             onTap: () {
               Navigator.pop(context);
               _showFirebaseConsentSettings();
+            },
+            trailing: const Icon(Icons.chevron_right),
+          ),
+          ListTile(
+            leading: Icon(
+              Icons.policy_outlined,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            title: const Text('隐私政策'),
+            subtitle: const Text('查看应用隐私政策'),
+            onTap: () {
+              Navigator.pop(context);
+              PrivacyPolicyPage.show(context);
             },
             trailing: const Icon(Icons.chevron_right),
           ),
