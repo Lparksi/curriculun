@@ -101,9 +101,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF6BA3FF)),
         useMaterial3: true,
         scaffoldBackgroundColor: Colors.white,
-        snackBarTheme: const SnackBarThemeData(
+        snackBarTheme: SnackBarThemeData(
           behavior: SnackBarBehavior.floating,
-          contentTextStyle: TextStyle(fontSize: 14),
+          backgroundColor: Colors.grey[850], // 深灰色背景
+          contentTextStyle: const TextStyle(fontSize: 14, color: Colors.white),
+          actionTextColor: const Color(0xFF6BA3FF), // 使用主题色
         ),
       ),
       darkTheme: ThemeData(
@@ -112,9 +114,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           brightness: Brightness.dark,
         ),
         useMaterial3: true,
-        snackBarTheme: const SnackBarThemeData(
+        snackBarTheme: SnackBarThemeData(
           behavior: SnackBarBehavior.floating,
-          contentTextStyle: TextStyle(fontSize: 14),
+          backgroundColor: Colors.grey[200], // 浅灰色背景
+          contentTextStyle: const TextStyle(fontSize: 14, color: Colors.black87),
+          actionTextColor: const Color(0xFF335CFF), // 使用深色主题色
         ),
       ),
       themeMode: _themeMode,
