@@ -19,14 +19,21 @@ class _CourseImportWebViewPageState extends State<CourseImportWebViewPage> {
   late final FocusNode _urlFocusNode;
 
   bool _isLoading = true;
-  String _currentUrl = 'https://www.baidu.com';
+  String _currentUrl = 'https://cn.bing.com/';
   double _loadingProgress = 0;
   bool _canGoBack = false;
   bool _canGoForward = false;
   bool _isEditingUrl = false;
+  bool _isMobileMode = true; // 默认为移动端模式
 
   // 默认主页地址
-  static const String _defaultHomeUrl = 'https://www.baidu.com';
+  static const String _defaultHomeUrl = 'https://cn.bing.com/';
+
+  // User-Agent 配置
+  static const String _mobileUserAgent =
+      'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36';
+  static const String _desktopUserAgent =
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
   @override
   void initState() {
@@ -48,6 +55,7 @@ class _CourseImportWebViewPageState extends State<CourseImportWebViewPage> {
     // 创建 WebViewController
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setUserAgent(_mobileUserAgent) // 默认使用移动端 User-Agent
       ..setNavigationDelegate(
         NavigationDelegate(
           onProgress: (int progress) {
@@ -86,6 +94,25 @@ class _CourseImportWebViewPageState extends State<CourseImportWebViewPage> {
         ),
       )
       ..loadRequest(Uri.parse(_defaultHomeUrl));
+  }
+
+  /// 切换移动端/桌面端模式
+  void _toggleUserAgent() {
+    setState(() {
+      _isMobileMode = !_isMobileMode;
+    });
+
+    // 设置 User-Agent
+    final userAgent = _isMobileMode ? _mobileUserAgent : _desktopUserAgent;
+    _controller.setUserAgent(userAgent);
+
+    // 重新加载当前页面以应用新的 User-Agent
+    _controller.reload();
+
+    // 显示提示
+    _showSuccessSnackBar(
+      _isMobileMode ? '已切换到移动端模式' : '已切换到桌面端模式',
+    );
   }
 
   /// 更新导航按钮状态
@@ -303,24 +330,69 @@ class _CourseImportWebViewPageState extends State<CourseImportWebViewPage> {
             child: WebViewWidget(controller: _controller),
           ),
 
-          // 底部提示
+          // 底部提示和控制栏
           Container(
-            padding: const EdgeInsets.all(12),
-            color: Theme.of(context).colorScheme.primaryContainer,
-            child: Row(
-              children: [
-                Icon(
-                  Icons.info_outline,
-                  size: 20,
-                  color: Theme.of(context).colorScheme.onPrimaryContainer,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.primaryContainer,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.1),
+                  blurRadius: 4,
+                  offset: const Offset(0, -2),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    '请登录教务系统并导航到课程表页面，然后点击右上角的"提取页面内容"按钮',
-                    style: TextStyle(
-                      fontSize: 12,
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // 提示信息
+                Row(
+                  children: [
+                    Icon(
+                      Icons.info_outline,
+                      size: 18,
                       color: Theme.of(context).colorScheme.onPrimaryContainer,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '请登录教务系统并导航到课程表页面，然后点击右上角的"提取页面内容"按钮',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Theme.of(context).colorScheme.onPrimaryContainer,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                // 模式切换按钮
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _toggleUserAgent,
+                    icon: Icon(
+                      _isMobileMode ? Icons.computer : Icons.smartphone,
+                      size: 18,
+                    ),
+                    label: Text(
+                      _isMobileMode ? '切换到桌面端模式' : '切换到移动端模式',
+                      style: const TextStyle(fontSize: 13),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor:
+                          Theme.of(context).colorScheme.onPrimaryContainer,
+                      side: BorderSide(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .onPrimaryContainer
+                            .withValues(alpha: 0.5),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
                     ),
                   ),
                 ),
