@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 /// 教务系统导入页面
@@ -85,11 +86,13 @@ class _CourseImportWebViewPageState extends State<CourseImportWebViewPage> {
           },
           onHttpError: (HttpResponseError error) {
             debugPrint('HTTP 错误: ${error.response?.statusCode}');
-            _showErrorSnackBar('加载页面失败，HTTP 错误: ${error.response?.statusCode}');
+            // 不显示错误提示，避免干扰用户操作
+            // _showErrorSnackBar('加载页面失败，HTTP 错误: ${error.response?.statusCode}');
           },
           onWebResourceError: (WebResourceError error) {
             debugPrint('资源加载错误: ${error.description}');
-            _showErrorSnackBar('资源加载错误: ${error.description}');
+            // 不显示错误提示，避免干扰用户操作
+            // _showErrorSnackBar('资源加载错误: ${error.description}');
           },
         ),
       )
@@ -169,6 +172,25 @@ class _CourseImportWebViewPageState extends State<CourseImportWebViewPage> {
     } catch (e) {
       debugPrint('提取 HTML 失败: $e');
       _showErrorSnackBar('提取页面内容失败: $e');
+    }
+  }
+
+  /// 复制当前页面的 HTML 到剪贴板（调试用）
+  Future<void> _copyPageHtml() async {
+    try {
+      // 执行 JavaScript 获取页面 HTML
+      final html = await _controller.runJavaScriptReturningResult(
+        'document.documentElement.outerHTML',
+      ) as String;
+
+      if (!mounted) return;
+
+      // 复制到剪贴板
+      await Clipboard.setData(ClipboardData(text: html));
+      _showSuccessSnackBar('HTML 内容已复制到剪贴板');
+    } catch (e) {
+      debugPrint('复制 HTML 失败: $e');
+      _showErrorSnackBar('复制页面内容失败: $e');
     }
   }
 
@@ -278,6 +300,12 @@ class _CourseImportWebViewPageState extends State<CourseImportWebViewPage> {
         title: const Text('从教务系统导入'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         actions: [
+          // 复制 HTML 按钮（调试用）
+          IconButton(
+            icon: const Icon(Icons.copy),
+            tooltip: '复制页面 HTML',
+            onPressed: _copyPageHtml,
+          ),
           // 提取 HTML 按钮
           IconButton(
             icon: const Icon(Icons.code),
