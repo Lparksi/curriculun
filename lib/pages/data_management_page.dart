@@ -6,6 +6,7 @@ import 'package:share_plus/share_plus.dart';
 import '../services/export_service.dart';
 import '../utils/web_file_utils.dart';
 import 'webdav_backup_page.dart';
+import 'course_import_webview_page.dart';
 
 /// 数据管理页面
 /// 提供数据导出和导入功能
@@ -83,6 +84,21 @@ class _DataManagementPageState extends State<DataManagementPage> {
 
           const SizedBox(height: 32),
 
+          // 教务系统导入部分
+          _buildSectionTitle('教务系统导入'),
+          const SizedBox(height: 8),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.school, color: Colors.indigo),
+              title: const Text('从教务系统导入'),
+              subtitle: const Text('通过网页登录教务系统并导入课程'),
+              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+              onTap: _openCourseImportWebView,
+            ),
+          ),
+
+          const SizedBox(height: 32),
+
           // WebDAV 备份部分
           _buildSectionTitle('WebDAV 云备份'),
           const SizedBox(height: 8),
@@ -110,6 +126,15 @@ class _DataManagementPageState extends State<DataManagementPage> {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => const WebDavBackupPage(),
+      ),
+    );
+  }
+
+  /// 打开教务系统导入页面
+  void _openCourseImportWebView() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => const CourseImportWebViewPage(),
       ),
     );
   }
