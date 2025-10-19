@@ -225,7 +225,7 @@ class _CourseImportWebViewPageState extends State<CourseImportWebViewPage> {
         return;
       }
 
-      final parseResult = _importService.parseHtml(
+      var parseResult = _importService.parseHtml(
         CourseImportSource(
           rawContent: html,
           origin: Uri.tryParse(_currentUrl),
@@ -234,18 +234,74 @@ class _CourseImportWebViewPageState extends State<CourseImportWebViewPage> {
 
       if (!mounted) return;
 
-      if (parseResult.status == ParseStatus.needAdditionalInput) {
-        await _showAdditionalInputDialog(parseResult);
-        return;
+      final aggregatedMessages = <CourseImportMessage>[
+        ...parseResult.messages,
+      ];
+      final combinedCourses = <ParsedCourse>[
+        ...parseResult.courses,
+      ];
+      var finalStatus = parseResult.status;
+      var finalParserId = parseResult.parserId;
+      final finalMetadata = Map<String, Object?>.from(parseResult.metadata);
+
+      if (parseResult.status == ParseStatus.needAdditionalInput &&
+          parseResult.frameRequests.isNotEmpty) {
+        final frameHtmlMap =
+            await _collectFrameHtmls(parseResult.frameRequests);
+        if (!mounted) return;
+
+        if (frameHtmlMap.isEmpty) {
+          aggregatedMessages.add(
+            const CourseImportMessage(
+              severity: ParserMessageSeverity.error,
+              message: '自动抓取课表 iframe 页面失败，未能解析到课程数据。',
+            ),
+          );
+        } else {
+          aggregatedMessages.add(
+            const CourseImportMessage(
+              severity: ParserMessageSeverity.info,
+              message: '已自动抓取课表 iframe 页面并尝试解析。',
+            ),
+          );
+
+          for (final entry in frameHtmlMap.entries) {
+            final frameResult = _importService.parseHtml(
+              CourseImportSource(
+                rawContent: entry.value,
+                origin: Uri.tryParse(_resolveFrameUrl(entry.key.src)),
+              ),
+            );
+            aggregatedMessages.addAll(frameResult.messages);
+            if (frameResult.courses.isNotEmpty) {
+              combinedCourses.addAll(frameResult.courses);
+              finalStatus = frameResult.status;
+              if (frameResult.parserId != null) {
+                finalParserId = frameResult.parserId;
+              }
+              finalMetadata.addAll(frameResult.metadata);
+            }
+          }
+        }
       }
 
-      if (!parseResult.isSuccess || parseResult.courses.isEmpty) {
-        final message = parseResult.messages.isNotEmpty
-            ? parseResult.messages.first.message
+      if (combinedCourses.isEmpty) {
+        final message = aggregatedMessages.isNotEmpty
+            ? aggregatedMessages.last.message
             : '未解析到任何课程信息';
         _showErrorSnackBar(message);
         return;
       }
+
+      parseResult = CourseImportResult(
+        status: finalStatus == ParseStatus.needAdditionalInput
+            ? ParseStatus.success
+            : finalStatus,
+        courses: combinedCourses,
+        messages: aggregatedMessages,
+        parserId: finalParserId,
+        metadata: finalMetadata,
+      );
 
       final existingCourses = await CourseService.loadAllCourses();
       if (!mounted) return;
@@ -425,91 +481,6 @@ class _CourseImportWebViewPageState extends State<CourseImportWebViewPage> {
               ),
             );
           },
-        );
-      },
-    );
-  }
-
-  Future<void> _showAdditionalInputDialog(
-    CourseImportResult parseResult,
-  ) {
-    return showDialog<void>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('需要额外页面内容'),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  ...parseResult.messages.map(
-                    (message) => Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: _buildMessageBanner(context, message),
-                    ),
-                  ),
-                  if (parseResult.frameRequests.isNotEmpty) ...[
-                    Text(
-                      '请同时获取以下 iframe 页面内容：',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                    const SizedBox(height: 8),
-                    ...parseResult.frameRequests.map(
-                      (frame) => Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (frame.description != null)
-                              Text(
-                                frame.description!,
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodySmall
-                                    ?.copyWith(
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .onSurfaceVariant,
-                                    ),
-                              ),
-                            SelectableText(
-                              frame.src,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontFamily: 'monospace',
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 8),
-                  Text(
-                    '可以在 WebView 中执行以下脚本以获取课程 iframe 的 HTML：',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                  const SizedBox(height: 8),
-                  SelectableText(
-                    'document.getElementById("frmDesk").contentWindow.document.documentElement.outerHTML',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontFamily: 'monospace',
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('我知道了'),
-            ),
-          ],
         );
       },
     );
@@ -706,6 +677,91 @@ class _CourseImportWebViewPageState extends State<CourseImportWebViewPage> {
       return '第${course.startWeek}周';
     }
     return '第${course.startWeek}-${course.endWeek}周';
+  }
+
+  Future<Map<FrameRequest, String>> _collectFrameHtmls(
+    List<FrameRequest> frames,
+  ) async {
+    final results = <FrameRequest, String>{};
+    for (final frame in frames) {
+      final html = await _tryFetchFrameHtml(frame);
+      if (html != null && html.trim().isNotEmpty) {
+        results[frame] = html;
+      }
+    }
+    return results;
+  }
+
+  Future<String?> _tryFetchFrameHtml(FrameRequest frame) async {
+    final extractionScript = _buildFrameExtractionScript(frame);
+    try {
+      final result =
+          await _controller.runJavaScriptReturningResult(extractionScript);
+      if (result is String && result.trim().isNotEmpty) {
+        return result;
+      }
+    } catch (e) {
+      debugPrint('读取 iframe 文档失败: $e');
+    }
+
+    final resolvedUrl = _resolveFrameUrl(frame.src);
+    final fetchScript = _buildFrameFetchScript(resolvedUrl);
+    try {
+      final result =
+          await _controller.runJavaScriptReturningResult(fetchScript);
+      if (result is String && result.trim().isNotEmpty) {
+        return result;
+      }
+    } catch (e) {
+      debugPrint('通过 fetch 获取 iframe HTML 失败: $e');
+    }
+
+    return null;
+  }
+
+  String _buildFrameExtractionScript(FrameRequest frame) {
+    final escapedSrc = frame.src.replaceAll('"', r'\"');
+    return '''
+(() => {
+  const candidates = [
+    document.getElementById("frmDesk"),
+    document.querySelector('iframe[src*="$escapedSrc"]')
+  ].filter(Boolean);
+  for (const candidate of candidates) {
+    const doc = candidate.contentDocument || candidate.contentWindow?.document;
+    if (doc && doc.documentElement) {
+      return doc.documentElement.outerHTML ?? '';
+    }
+  }
+  return '';
+})()
+''';
+  }
+
+  String _buildFrameFetchScript(String url) {
+    final escaped = url.replaceAll('"', r'\"');
+    return '''
+(async () => {
+  try {
+    const response = await fetch("$escaped", { credentials: 'include' });
+    if (!response.ok) {
+      return '';
+    }
+    return await response.text();
+  } catch (error) {
+    return '';
+  }
+})()
+''';
+  }
+
+  String _resolveFrameUrl(String src) {
+    try {
+      final base = Uri.parse(_currentUrl);
+      return base.resolve(src).toString();
+    } catch (_) {
+      return src;
+    }
   }
 
   /// 显示 HTML 预览对话框（调试用）
