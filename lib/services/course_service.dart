@@ -141,28 +141,87 @@ class CourseService {
   }
 
   /// 添加课程
-  static Future<void> addCourse(Course course) async {
-    final courses = await loadCourses();
-    courses.add(course);
-    await saveCourses(courses);
+  static Future<void> addCourse(Course course) {
+    var operationSucceeded = false;
+
+    return PerformanceTracker.instance.traceAsync(
+      traceName: PerformanceTraces.addCourse,
+      operation: () async {
+        final courses = await loadCourses();
+        courses.add(course);
+        operationSucceeded = true;
+        await saveCourses(courses);
+      },
+      attributes: {
+        'weekday': course.weekday.toString(),
+        'start_section': course.startSection.toString(),
+        'duration': course.duration.toString(),
+        'semester_id': course.semesterId ?? 'none',
+      },
+      onComplete: (trace, _) {
+        PerformanceTracker.instance.addAttribute(
+          trace,
+          'operation_success',
+          operationSucceeded ? 'true' : 'false',
+        );
+      },
+    );
   }
 
   /// 更新课程
-  static Future<void> updateCourse(int index, Course course) async {
-    final courses = await loadCourses();
-    if (index >= 0 && index < courses.length) {
-      courses[index] = course;
-      await saveCourses(courses);
-    }
+  static Future<void> updateCourse(int index, Course course) {
+    var operationSucceeded = false;
+
+    return PerformanceTracker.instance.traceAsync(
+      traceName: PerformanceTraces.updateCourse,
+      operation: () async {
+        final courses = await loadCourses();
+        if (index >= 0 && index < courses.length) {
+          courses[index] = course;
+          operationSucceeded = true;
+          await saveCourses(courses);
+        }
+      },
+      attributes: {
+        'index': index.toString(),
+        'weekday': course.weekday.toString(),
+        'start_section': course.startSection.toString(),
+        'duration': course.duration.toString(),
+        'semester_id': course.semesterId ?? 'none',
+      },
+      onComplete: (trace, _) {
+        PerformanceTracker.instance.addAttribute(
+          trace,
+          'operation_success',
+          operationSucceeded ? 'true' : 'false',
+        );
+      },
+    );
   }
 
   /// 删除课程
-  static Future<void> deleteCourse(int index) async {
-    final courses = await loadCourses();
-    if (index >= 0 && index < courses.length) {
-      courses.removeAt(index);
-      await saveCourses(courses);
-    }
+  static Future<void> deleteCourse(int index) {
+    var operationSucceeded = false;
+
+    return PerformanceTracker.instance.traceAsync(
+      traceName: PerformanceTraces.deleteCourse,
+      operation: () async {
+        final courses = await loadCourses();
+        if (index >= 0 && index < courses.length) {
+          courses.removeAt(index);
+          operationSucceeded = true;
+          await saveCourses(courses);
+        }
+      },
+      attributes: {'index': index.toString()},
+      onComplete: (trace, _) {
+        PerformanceTracker.instance.addAttribute(
+          trace,
+          'operation_success',
+          operationSucceeded ? 'true' : 'false',
+        );
+      },
+    );
   }
 
   /// 重置课程数据（恢复为assets中的默认数据）

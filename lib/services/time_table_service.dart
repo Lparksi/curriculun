@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/time_table.dart';
+import '../utils/performance_tracker.dart';
 
 /// 时间表服务 - 处理时间表的增删改查和持久化
 class TimeTableService {
@@ -12,21 +13,30 @@ class TimeTableService {
   /// 加载所有时间表
   static Future<List<TimeTable>> loadTimeTables() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final jsonString = prefs.getString(_timeTablesKey);
+      return await PerformanceTracker.instance.traceAsync(
+        traceName: PerformanceTraces.loadTimeTables,
+        operation: () async {
+          final prefs = await SharedPreferences.getInstance();
+          final jsonString = prefs.getString(_timeTablesKey);
 
-      if (jsonString == null || jsonString.isEmpty) {
-        // 首次使用,返回默认时间表
-        final defaultTable = TimeTable.defaultTimeTable();
-        await saveTimeTables([defaultTable]);
-        await setActiveTimeTableId(defaultTable.id);
-        return [defaultTable];
-      }
+          if (jsonString == null || jsonString.isEmpty) {
+            // 首次使用,返回默认时间表
+            final defaultTable = TimeTable.defaultTimeTable();
+            await saveTimeTables([defaultTable]);
+            await setActiveTimeTableId(defaultTable.id);
+            return [defaultTable];
+          }
 
-      final jsonList = jsonDecode(jsonString) as List;
-      return jsonList
-          .map((json) => TimeTable.fromJson(json as Map<String, dynamic>))
-          .toList();
+          final jsonList = jsonDecode(jsonString) as List;
+          return jsonList
+              .map((json) => TimeTable.fromJson(json as Map<String, dynamic>))
+              .toList();
+        },
+        onComplete: (trace, result) {
+          PerformanceTracker.instance
+              .addMetric(trace, 'timetable_count', result.length);
+        },
+      );
     } catch (e) {
       debugPrint('加载时间表失败: $e');
       final defaultTable = TimeTable.defaultTimeTable();
@@ -35,17 +45,23 @@ class TimeTableService {
   }
 
   /// 保存所有时间表
-  static Future<void> saveTimeTables(List<TimeTable> timeTables) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final jsonString = jsonEncode(
-        timeTables.map((table) => table.toJson()).toList(),
-      );
-      await prefs.setString(_timeTablesKey, jsonString);
-    } catch (e) {
-      debugPrint('保存时间表失败: $e');
-      rethrow;
-    }
+  static Future<void> saveTimeTables(List<TimeTable> timeTables) {
+    return PerformanceTracker.instance.traceAsync(
+      traceName: PerformanceTraces.saveTimeTables,
+      operation: () async {
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          final jsonString = jsonEncode(
+            timeTables.map((table) => table.toJson()).toList(),
+          );
+          await prefs.setString(_timeTablesKey, jsonString);
+        } catch (e) {
+          debugPrint('保存时间表失败: $e');
+          rethrow;
+        }
+      },
+      attributes: {'timetable_count': timeTables.length.toString()},
+    );
   }
 
   /// 获取当前激活的时间表 ID
@@ -71,17 +87,34 @@ class TimeTableService {
   }
 
   /// 获取当前激活的时间表
-  static Future<TimeTable> getActiveTimeTable() async {
-    final timeTables = await loadTimeTables();
-    final activeId = await getActiveTimeTableId();
+  static Future<TimeTable> getActiveTimeTable() {
+    String? activeId;
+    return PerformanceTracker.instance.traceAsync(
+      traceName: PerformanceTraces.getActiveTimeTable,
+      operation: () async {
+        final timeTables = await loadTimeTables();
+        activeId = await getActiveTimeTableId();
 
-    // 查找激活的时间表
-    final activeTable = timeTables.firstWhere(
-      (table) => table.id == activeId,
-      orElse: () => timeTables.first,
+        // 查找激活的时间表
+        final activeTable = timeTables.firstWhere(
+          (table) => table.id == activeId,
+          orElse: () => timeTables.first,
+        );
+
+        return activeTable;
+      },
+      onComplete: (trace, result) {
+        if (activeId != null) {
+          PerformanceTracker.instance
+              .addAttribute(trace, 'active_timetable_id', activeId!);
+        }
+        PerformanceTracker.instance.addAttribute(
+          trace,
+          'active_timetable_name',
+          result.name,
+        );
+      },
     );
-
-    return activeTable;
   }
 
   /// 添加新时间表

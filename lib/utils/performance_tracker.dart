@@ -281,4 +281,8 @@ class PerformanceTraces {
   static const String importConfig = 'import_config';
   static const String backupToCloud = 'backup_to_cloud';
   static const String restoreFromCloud = 'restore_from_cloud';
+  static const String listCloudBackups = 'list_cloud_backups';
+  static const String deleteCloudBackup = 'delete_cloud_backup';
+  static const String previewCloudBackup = 'preview_cloud_backup';
+  static const String testCloudConnection = 'test_cloud_connection';
 }

@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../models/course.dart';
 import '../models/semester_settings.dart';
 import '../models/time_table.dart';
+import '../utils/performance_tracker.dart';
 import 'config_version_manager.dart';
 import 'course_service.dart';
 import 'settings_service.dart';
@@ -13,42 +14,67 @@ import 'time_table_service.dart';
 class ExportService {
   /// 导出所有数据为 JSON 字符串
   /// 包括：课程、学期设置、时间表
-  static Future<String> exportAllData() async {
-    try {
-      // 并行加载所有数据
-      final results = await Future.wait([
-        CourseService.loadAllCourses(),
-        SettingsService.getAllSemesters(),
-        TimeTableService.loadTimeTables(),
-        SettingsService.getActiveSemesterId(),
-        TimeTableService.getActiveTimeTableId(),
-      ]);
+  static Future<String> exportAllData() {
+    var courseCount = 0;
+    var semesterCount = 0;
+    var timeTableCount = 0;
 
-      final courses = results[0] as List<Course>;
-      final semesters = results[1] as List<SemesterSettings>;
-      final timeTables = results[2] as List<TimeTable>;
-      final activeSemesterId = results[3] as String?;
-      final activeTimeTableId = results[4] as String?;
+    return PerformanceTracker.instance.traceAsync(
+      traceName: PerformanceTraces.exportConfig,
+      operation: () async {
+        try {
+          // 并行加载所有数据
+          final results = await Future.wait([
+            CourseService.loadAllCourses(),
+            SettingsService.getAllSemesters(),
+            TimeTableService.loadTimeTables(),
+            SettingsService.getActiveSemesterId(),
+            TimeTableService.getActiveTimeTableId(),
+          ]);
 
-      // 构建导出数据结构
-      final exportData = {
-        'version': ConfigVersionManager.currentVersion, // 使用版本管理器的当前版本
-        'exportTime': DateTime.now().toIso8601String(),
-        'data': {
-          'courses': courses.map((c) => c.toJson()).toList(),
-          'semesters': semesters.map((s) => s.toJson()).toList(),
-          'timeTables': timeTables.map((t) => t.toJson()).toList(),
-          'activeSemesterId': activeSemesterId,
-          'activeTimeTableId': activeTimeTableId,
-        },
-      };
+          final courses = results[0] as List<Course>;
+          final semesters = results[1] as List<SemesterSettings>;
+          final timeTables = results[2] as List<TimeTable>;
+          final activeSemesterId = results[3] as String?;
+          final activeTimeTableId = results[4] as String?;
 
-      // 格式化 JSON（美化输出）
-      return const JsonEncoder.withIndent('  ').convert(exportData);
-    } catch (e) {
-      debugPrint('导出数据失败: $e');
-      rethrow;
-    }
+          courseCount = courses.length;
+          semesterCount = semesters.length;
+          timeTableCount = timeTables.length;
+
+          // 构建导出数据结构
+          final exportData = {
+            'version': ConfigVersionManager.currentVersion, // 使用版本管理器的当前版本
+            'exportTime': DateTime.now().toIso8601String(),
+            'data': {
+              'courses': courses.map((c) => c.toJson()).toList(),
+              'semesters': semesters.map((s) => s.toJson()).toList(),
+              'timeTables': timeTables.map((t) => t.toJson()).toList(),
+              'activeSemesterId': activeSemesterId,
+              'activeTimeTableId': activeTimeTableId,
+            },
+          };
+
+          // 格式化 JSON（美化输出）
+          return const JsonEncoder.withIndent('  ').convert(exportData);
+        } catch (e) {
+          debugPrint('导出数据失败: $e');
+          rethrow;
+        }
+      },
+      onComplete: (trace, result) {
+        PerformanceTracker.instance
+            .addMetric(trace, 'course_count', courseCount);
+        PerformanceTracker.instance
+            .addMetric(trace, 'semester_count', semesterCount);
+        PerformanceTracker.instance
+            .addMetric(trace, 'timetable_count', timeTableCount);
+        PerformanceTracker.instance
+            .addMetric(trace, 'payload_chars', result.length);
+        PerformanceTracker.instance
+            .addAttribute(trace, 'export_success', 'true');
+      },
+    );
   }
 
   /// 导出课程数据为 JSON 字符串
@@ -132,119 +158,143 @@ class ExportService {
   static Future<ImportResult> importAllData(
     String jsonString, {
     bool merge = false,
-  }) async {
-    try {
-      // 解析 JSON
-      var jsonData = jsonDecode(jsonString) as Map<String, dynamic>;
+  }) {
+    int coursesImported = 0;
+    int semestersImported = 0;
+    int timeTablesImported = 0;
 
-      // 验证并升级配置版本
-      jsonData = _validateAndUpgradeConfig(jsonData);
+    return PerformanceTracker.instance.traceAsync(
+      traceName: PerformanceTraces.importConfig,
+      operation: () async {
+        try {
+          // 解析 JSON
+          var jsonData = jsonDecode(jsonString) as Map<String, dynamic>;
 
-      final data = jsonData['data'] as Map<String, dynamic>;
+          // 验证并升级配置版本
+          jsonData = _validateAndUpgradeConfig(jsonData);
 
-      // 统计信息
-      int coursesImported = 0;
-      int semestersImported = 0;
-      int timeTablesImported = 0;
+          final data = jsonData['data'] as Map<String, dynamic>;
 
-      // 导入课程
-      if (data.containsKey('courses')) {
-        final coursesJson = data['courses'] as List<dynamic>;
-        final courses = coursesJson
-            .map((json) => Course.fromJson(json as Map<String, dynamic>))
-            .toList();
+          // 导入课程
+          if (data.containsKey('courses')) {
+            final coursesJson = data['courses'] as List<dynamic>;
+            final courses = coursesJson
+                .map((json) => Course.fromJson(json as Map<String, dynamic>))
+                .toList();
 
-        if (merge) {
-          final existingCourses = await CourseService.loadAllCourses();
-          existingCourses.addAll(courses);
-          await CourseService.saveCourses(existingCourses);
-        } else {
-          await CourseService.saveCourses(courses);
-        }
-        coursesImported = courses.length;
-      }
+            if (merge) {
+              final existingCourses = await CourseService.loadAllCourses();
+              existingCourses.addAll(courses);
+              await CourseService.saveCourses(existingCourses);
+            } else {
+              await CourseService.saveCourses(courses);
+            }
+            coursesImported = courses.length;
+          }
 
-      // 导入学期设置
-      if (data.containsKey('semesters')) {
-        final semestersJson = data['semesters'] as List<dynamic>;
-        final semesters = semestersJson
-            .map(
-              (json) => SemesterSettings.fromJson(json as Map<String, dynamic>),
-            )
-            .toList();
+          // 导入学期设置
+          if (data.containsKey('semesters')) {
+            final semestersJson = data['semesters'] as List<dynamic>;
+            final semesters = semestersJson
+                .map(
+                  (json) =>
+                      SemesterSettings.fromJson(json as Map<String, dynamic>),
+                )
+                .toList();
 
-        if (merge) {
-          final existingSemesters = await SettingsService.getAllSemesters();
-          // 合并学期（避免ID冲突）
-          for (final semester in semesters) {
-            if (!existingSemesters.any((s) => s.id == semester.id)) {
-              await SettingsService.addSemester(semester);
-              semestersImported++;
+            if (merge) {
+              final existingSemesters = await SettingsService.getAllSemesters();
+              // 合并学期（避免ID冲突）
+              for (final semester in semesters) {
+                if (!existingSemesters.any((s) => s.id == semester.id)) {
+                  await SettingsService.addSemester(semester);
+                  semestersImported++;
+                }
+              }
+            } else {
+              // 清除现有学期并导入
+              await SettingsService.clearAllSemesters();
+              for (final semester in semesters) {
+                await SettingsService.addSemester(semester);
+                semestersImported++;
+              }
+            }
+
+            // 设置激活的学期
+            if (data.containsKey('activeSemesterId')) {
+              final activeSemesterId = data['activeSemesterId'] as String?;
+              if (activeSemesterId != null) {
+                await SettingsService.setActiveSemesterId(activeSemesterId);
+              }
             }
           }
-        } else {
-          // 清除现有学期并导入
-          await SettingsService.clearAllSemesters();
-          for (final semester in semesters) {
-            await SettingsService.addSemester(semester);
-            semestersImported++;
-          }
-        }
 
-        // 设置激活的学期
-        if (data.containsKey('activeSemesterId')) {
-          final activeSemesterId = data['activeSemesterId'] as String?;
-          if (activeSemesterId != null) {
-            await SettingsService.setActiveSemesterId(activeSemesterId);
-          }
-        }
-      }
+          // 导入时间表
+          if (data.containsKey('timeTables')) {
+            final timeTablesJson = data['timeTables'] as List<dynamic>;
+            final timeTables = timeTablesJson
+                .map(
+                  (json) => TimeTable.fromJson(json as Map<String, dynamic>),
+                )
+                .toList();
 
-      // 导入时间表
-      if (data.containsKey('timeTables')) {
-        final timeTablesJson = data['timeTables'] as List<dynamic>;
-        final timeTables = timeTablesJson
-            .map((json) => TimeTable.fromJson(json as Map<String, dynamic>))
-            .toList();
+            if (merge) {
+              final existingTimeTables = await TimeTableService.loadTimeTables();
+              // 合并时间表（避免ID冲突）
+              for (final timeTable in timeTables) {
+                if (!existingTimeTables.any((t) => t.id == timeTable.id)) {
+                  await TimeTableService.addTimeTable(timeTable);
+                  timeTablesImported++;
+                }
+              }
+            } else {
+              // 覆盖时间表
+              await TimeTableService.saveTimeTables(timeTables);
+              timeTablesImported = timeTables.length;
+            }
 
-        final existingTimeTables = await TimeTableService.loadTimeTables();
-
-        if (merge) {
-          // 合并时间表（避免ID冲突）
-          for (final timeTable in timeTables) {
-            if (!existingTimeTables.any((t) => t.id == timeTable.id)) {
-              await TimeTableService.addTimeTable(timeTable);
-              timeTablesImported++;
+            // 设置激活的时间表
+            if (data.containsKey('activeTimeTableId')) {
+              final activeTimeTableId = data['activeTimeTableId'] as String?;
+              if (activeTimeTableId != null) {
+                await TimeTableService.setActiveTimeTableId(activeTimeTableId);
+              }
             }
           }
-        } else {
-          // 覆盖时间表
-          await TimeTableService.saveTimeTables(timeTables);
-          timeTablesImported = timeTables.length;
-        }
 
-        // 设置激活的时间表
-        if (data.containsKey('activeTimeTableId')) {
-          final activeTimeTableId = data['activeTimeTableId'] as String?;
-          if (activeTimeTableId != null) {
-            await TimeTableService.setActiveTimeTableId(activeTimeTableId);
-          }
+          return ImportResult(
+            success: true,
+            coursesImported: coursesImported,
+            semestersImported: semestersImported,
+            timeTablesImported: timeTablesImported,
+          );
+        } catch (e) {
+          debugPrint('导入数据失败: $e');
+          return ImportResult(
+            success: false,
+            error: e.toString(),
+          );
         }
-      }
-
-      return ImportResult(
-        success: true,
-        coursesImported: coursesImported,
-        semestersImported: semestersImported,
-        timeTablesImported: timeTablesImported,
-      );
-    } catch (e) {
-      debugPrint('导入数据失败: $e');
-      return ImportResult(
-        success: false,
-        error: e.toString(),
-      );
-    }
+      },
+      attributes: {'merge_mode': merge ? 'merge' : 'replace'},
+      onComplete: (trace, result) {
+        PerformanceTracker.instance
+            .addMetric(trace, 'courses_imported', coursesImported);
+        PerformanceTracker.instance
+            .addMetric(trace, 'semesters_imported', semestersImported);
+        PerformanceTracker.instance
+            .addMetric(trace, 'timetables_imported', timeTablesImported);
+        PerformanceTracker.instance.addAttribute(
+          trace,
+          'import_success',
+          result.success ? 'true' : 'false',
+        );
+        if (!result.success && result.error != null) {
+          PerformanceTracker.instance
+              .addAttribute(trace, 'error', result.error!);
+        }
+      },
+    );
   }
 
   /// 导入课程数据
