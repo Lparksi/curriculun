@@ -43,6 +43,17 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pub-
 
+      - name: Cache Android SDK components
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.android
+            /usr/local/lib/android/sdk/ndk/27.0.12077973
+            /usr/local/lib/android/sdk/cmake/3.22.1
+          key: ${{ runner.os }}-android-sdk-${{ hashFiles('android/build.gradle', 'android/app/build.gradle', 'android/gradle.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-android-sdk-
+
       - name: Get dependencies
         run: flutter pub get
 
@@ -256,6 +267,17 @@ jobs:
           key: ${{ runner.os }}-pub-${{ hashFiles('pubspec.lock') }}
           restore-keys: |
             ${{ runner.os }}-pub-
+
+      - name: Cache Android SDK components
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.android
+            /usr/local/lib/android/sdk/ndk/27.0.12077973
+            /usr/local/lib/android/sdk/cmake/3.22.1
+          key: ${{ runner.os }}-android-sdk-${{ hashFiles('android/build.gradle', 'android/app/build.gradle', 'android/gradle.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-android-sdk-
 
       - name: Cache Gradle directories
         uses: actions/cache@v4
