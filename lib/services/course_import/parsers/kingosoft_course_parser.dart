@@ -6,6 +6,23 @@ import '../models/course_import_models.dart';
 import 'course_html_parser.dart';
 
 class KingosoftCourseParser implements CourseHtmlParser {
+  static const List<String> _weekdayKeywords = <String>[
+    '星期一',
+    '星期二',
+    '星期三',
+    '星期四',
+    '星期五',
+    '星期六',
+    '星期日',
+    '周一',
+    '周二',
+    '周三',
+    '周四',
+    '周五',
+    '周六',
+    '周日',
+  ];
+
   @override
   String get id => 'kingosoft.course_table';
 
@@ -16,19 +33,43 @@ class KingosoftCourseParser implements CourseHtmlParser {
   bool canHandle(CourseHtmlParsingContext context) {
     final document = context.document;
     final title = document.querySelector('title')?.text ?? '';
-    final hasBrand = title.contains('KINGOSOFT') ||
-        context.normalizedHtml.contains('KINGOSOFT高校教学综合管理服务平台');
-    final hasTable = document.querySelector('#kbtable') != null ||
-        document.querySelector('.kbtable') != null;
-    final hasFrame = document.querySelector('iframe#frmDesk') != null;
-    return hasTable || (hasBrand && hasFrame);
+    final normalized = context.normalizedHtml;
+    final host = context.source.origin?.host ?? '';
+    final bodyText = document.body?.text ?? '';
+
+    final hasBrandKeyword = <String>[
+      'KINGOSOFT',
+      '教学综合管理服务平台',
+      '教务综合管理服务平台',
+    ].any((keyword) => title.contains(keyword) || normalized.contains(keyword));
+
+    final isKingosoftDomain =
+        host.contains('jwgl') ||
+        host.contains('kingosoft') ||
+        normalized.contains('KINGOSOFT高校教学综合管理服务平台');
+
+    final hasTable = _findTimetableTable(document) != null;
+
+    final hasPortalFrame =
+        document.querySelector('iframe#frmDesk') != null ||
+        document.querySelector('iframe[name="frmDesk"]') != null ||
+        document.querySelector('iframe[src*="kbcx"]') != null ||
+        document.querySelector('iframe[src*="wdkb"]') != null;
+
+    final hasCourseText =
+        bodyText.contains('学生个人课表') ||
+        bodyText.contains('学生课表') ||
+        bodyText.contains('课表查询');
+
+    return hasTable ||
+        (hasPortalFrame && (hasBrandKeyword || isKingosoftDomain)) ||
+        ((hasBrandKeyword || isKingosoftDomain) && hasCourseText);
   }
 
   @override
   CourseImportParseResult parse(CourseHtmlParsingContext context) {
     final document = context.document;
-    final kbTable = document.querySelector('#kbtable') ??
-        document.querySelector('table.kbtable');
+    final kbTable = _findTimetableTable(document);
     if (kbTable != null) {
       final courses = _parseCourseTable(kbTable);
       if (courses.isEmpty) {
@@ -58,18 +99,17 @@ class KingosoftCourseParser implements CourseHtmlParser {
       );
     }
 
-    final iframe = document.querySelector('iframe#frmDesk');
+    final iframe =
+        document.querySelector('iframe#frmDesk') ??
+        document.querySelector('iframe[name="frmDesk"]') ??
+        document.querySelector('iframe[src*="kbcx"]') ??
+        document.querySelector('iframe[src*="wdkb"]');
     if (iframe != null) {
       final src = iframe.attributes['src'] ?? '';
       return CourseImportParseResult(
         parserId: id,
         status: ParseStatus.needAdditionalInput,
-        frameRequests: [
-          FrameRequest(
-            src: src,
-            description: '学生课表 iframe 内容',
-          ),
-        ],
+        frameRequests: [FrameRequest(src: src, description: '学生课表 iframe 内容')],
         messages: [
           CourseImportMessage(
             severity: ParserMessageSeverity.warning,
@@ -93,14 +133,43 @@ class KingosoftCourseParser implements CourseHtmlParser {
     );
   }
 
+  Element? _findTimetableTable(Document document) {
+    final direct =
+        document.querySelector('#kbtable') ??
+        document.querySelector('table.kbtable');
+    if (direct != null) {
+      return direct;
+    }
+
+    Element? bestMatch;
+    var bestScore = 0;
+    for (final table in document.getElementsByTagName('table')) {
+      final text = table.text;
+      if (text.trim().isEmpty) {
+        continue;
+      }
+      final hits = _weekdayKeywords
+          .where((keyword) => text.contains(keyword))
+          .length;
+      final hasSectionHints =
+          text.contains('节次') || RegExp(r'第\s*\d+\s*节').hasMatch(text);
+      if (hits >= 2 && hasSectionHints && hits >= bestScore) {
+        bestMatch = table;
+        bestScore = hits;
+      }
+    }
+    return bestMatch;
+  }
+
   List<ParsedCourse> _parseCourseTable(Element table) {
     final rows = table.querySelectorAll('tr');
     if (rows.length <= 1) {
       return const <ParsedCourse>[];
     }
 
-    final headerCells =
-        rows.first.children.where((element) => _isDataCell(element)).toList();
+    final headerCells = rows.first.children
+        .where((element) => _isDataCell(element))
+        .toList();
     final weekdayCount = headerCells.length;
     if (weekdayCount == 0) {
       return const <ParsedCourse>[];
@@ -112,7 +181,8 @@ class KingosoftCourseParser implements CourseHtmlParser {
 
     for (final row in rows.skip(1)) {
       final sectionNumber =
-          _extractSectionNumber(row) ?? _fallbackSectionNumber(++inferredSection);
+          _extractSectionNumber(row) ??
+          _fallbackSectionNumber(++inferredSection);
       final occupied = <int>{};
 
       for (var col = 0; col < weekdayCount; col++) {
@@ -122,8 +192,9 @@ class KingosoftCourseParser implements CourseHtmlParser {
         }
       }
 
-      var cells =
-          row.children.where((element) => _isDataCell(element)).toList();
+      var cells = row.children
+          .where((element) => _isDataCell(element))
+          .toList();
       if (cells.isEmpty) {
         continue;
       }
@@ -136,9 +207,11 @@ class KingosoftCourseParser implements CourseHtmlParser {
       }
 
       var dataCellIndex = 0;
-      for (var columnIndex = 0;
-          columnIndex < weekdayCount && dataCellIndex < cells.length;
-          columnIndex++) {
+      for (
+        var columnIndex = 0;
+        columnIndex < weekdayCount && dataCellIndex < cells.length;
+        columnIndex++
+      ) {
         if (occupied.contains(columnIndex)) {
           continue;
         }
@@ -146,8 +219,7 @@ class KingosoftCourseParser implements CourseHtmlParser {
         final cell = cells[dataCellIndex];
         dataCellIndex++;
 
-        final rowspan =
-            int.tryParse(cell.attributes['rowspan'] ?? '1') ?? 1;
+        final rowspan = int.tryParse(cell.attributes['rowspan'] ?? '1') ?? 1;
         if (rowspan > 1) {
           rowSpanTracker[columnIndex] = rowspan - 1;
         }
@@ -170,8 +242,9 @@ class KingosoftCourseParser implements CourseHtmlParser {
     if (row.children.isEmpty) return null;
     final firstCell = row.children.first;
     final text = firstCell.text.trim();
-    final match =
-        RegExp(r'第\s*(\d+)\s*节').firstMatch(text.replaceAll('\n', ' '));
+    final match = RegExp(
+      r'第\s*(\d+)\s*节',
+    ).firstMatch(text.replaceAll('\n', ' '));
     if (match != null) {
       return int.tryParse(match.group(1)!);
     }
@@ -287,31 +360,57 @@ class KingosoftCourseParser implements CourseHtmlParser {
     var parsedStartSection = startSection;
     var parsedDuration = duration;
     String? rawWeekInfo;
+    String? rawSectionInfo;
     final notes = <String>[];
 
-    for (final line in lines.skip(1)) {
-      if (teacher.isEmpty && _looksLikeTeacher(line)) {
-        teacher = _cleanupTeacher(line);
+    for (final rawLine in lines.skip(1)) {
+      final line = rawLine.trim();
+      if (line.isEmpty) {
         continue;
       }
 
-      final sectionMatch = RegExp(r'(\d+)(?:-(\d+))?节').firstMatch(line);
-      final weekMatch = RegExp(r'(\d+)(?:-(\d+))?周').firstMatch(line);
-      if (sectionMatch != null || weekMatch != null || line.contains('周')) {
-        rawWeekInfo = line;
-        if (weekMatch != null) {
-          final startWeekStr = weekMatch.group(1)!;
-          final endWeekStr = weekMatch.group(2) ?? startWeekStr;
-          parsedStartWeek = int.tryParse(startWeekStr) ?? parsedStartWeek;
-          parsedEndWeek = int.tryParse(endWeekStr) ?? parsedEndWeek;
+      if (teacher.isEmpty && _looksLikeTeacher(line)) {
+        teacher = _cleanupTeacher(line);
+        if (teacher.isNotEmpty) {
+          continue;
         }
-        if (sectionMatch != null) {
-          final startSectionStr = sectionMatch.group(1)!;
-          final endSectionStr = sectionMatch.group(2) ?? startSectionStr;
-          final start = int.tryParse(startSectionStr) ?? parsedStartSection;
-          final end = int.tryParse(endSectionStr) ?? start;
-          parsedStartSection = start;
-          parsedDuration = max(1, end - start + 1);
+      }
+
+      final schedule = _parseScheduleLine(line);
+      if (schedule != null) {
+        if (schedule.startWeek != null) {
+          parsedStartWeek = schedule.startWeek!;
+        }
+        if (schedule.endWeek != null) {
+          parsedEndWeek = schedule.endWeek!;
+        }
+        if (schedule.startSection != null) {
+          parsedStartSection = schedule.startSection!;
+        }
+        if (schedule.endSection != null) {
+          final end = schedule.endSection!;
+          parsedDuration = max(1, end - parsedStartSection + 1);
+        }
+        rawWeekInfo ??= schedule.weekRaw;
+        rawSectionInfo ??= schedule.sectionRaw;
+        if (schedule.extraNote != null) {
+          notes.add(schedule.extraNote!);
+        }
+        continue;
+      }
+
+      if (teacher.isEmpty && _looksLikePlainTeacher(line)) {
+        teacher = line;
+        continue;
+      }
+
+      if (location.isEmpty ||
+          (!_looksLikeLocation(location) && _looksLikeLocation(line))) {
+        if (location.isEmpty) {
+          location = line;
+        } else if (_looksLikeLocation(line)) {
+          notes.add(location);
+          location = line;
         }
         continue;
       }
@@ -333,14 +432,13 @@ class KingosoftCourseParser implements CourseHtmlParser {
       startWeek: parsedStartWeek,
       endWeek: parsedEndWeek,
       rawWeeks: rawWeekInfo,
+      rawSections: rawSectionInfo,
       notes: notes,
     );
   }
 
   bool _looksLikeTeacher(String text) {
-    return text.contains('教师') ||
-        text.contains('老师') ||
-        text.contains('任课');
+    return text.contains('教师') || text.contains('老师') || text.contains('任课');
   }
 
   String _cleanupTeacher(String text) {
@@ -349,4 +447,207 @@ class KingosoftCourseParser implements CourseHtmlParser {
         .replaceAll('老师', '')
         .trim();
   }
+
+  bool _looksLikePlainTeacher(String text) {
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) {
+      return false;
+    }
+    if (RegExp(r'[0-9０-９]').hasMatch(trimmed)) {
+      return false;
+    }
+    if (_looksLikeLocation(trimmed)) {
+      return false;
+    }
+    return RegExp(r'^[\u4e00-\u9fa5·]{2,6}$').hasMatch(trimmed);
+  }
+
+  bool _looksLikeLocation(String text) {
+    if (RegExp(r'[0-9０-９]').hasMatch(text)) {
+      return true;
+    }
+    const keywords = ['楼', '室', '馆', '中心', '厅', '场', '院', '实验'];
+    return keywords.any(text.contains);
+  }
+
+  _ScheduleParseResult? _parseScheduleLine(String line) {
+    final normalized = line.replaceAll(RegExp(r'\s+'), '');
+    if (!(normalized.contains('周') ||
+        normalized.contains('节') ||
+        normalized.contains('['))) {
+      return null;
+    }
+
+    int? startWeek;
+    int? endWeek;
+    int? startSection;
+    int? endSection;
+    String? weekRaw;
+    String? sectionRaw;
+    String? extraNote;
+
+    final bracketMatch = RegExp(
+      r'^([0-9,，、\-]+)\[([0-9,，、\-]+)\]',
+    ).firstMatch(normalized);
+    if (bracketMatch != null) {
+      final weeksSpec = bracketMatch.group(1)!;
+      final sectionsSpec = bracketMatch.group(2)!;
+      final weekRange = _parseNumberRangeSpec(weeksSpec);
+      if (weekRange != null) {
+        startWeek = weekRange.start;
+        endWeek = weekRange.end;
+        weekRaw = line;
+        if (!weekRange.isContinuous) {
+          extraNote ??= '原始周次：$weeksSpec';
+        }
+      }
+      final sectionRange = _parseNumberRangeSpec(sectionsSpec);
+      if (sectionRange != null) {
+        startSection = sectionRange.start;
+        endSection = sectionRange.end;
+        sectionRaw = line;
+        if (!sectionRange.isContinuous) {
+          extraNote ??= '原始节次：$sectionsSpec';
+        }
+      }
+    }
+
+    final weekMatch = RegExp(r'(\d+)(?:-(\d+))?周').firstMatch(line);
+    if (weekMatch != null) {
+      final startWeekStr = weekMatch.group(1)!;
+      final endWeekStr = weekMatch.group(2) ?? startWeekStr;
+      final parsedStart = int.tryParse(startWeekStr);
+      final parsedEnd = int.tryParse(endWeekStr);
+      if (parsedStart != null) {
+        startWeek = parsedStart;
+        endWeek = parsedEnd ?? parsedStart;
+        weekRaw ??= line;
+      }
+    }
+
+    final sectionMatch = RegExp(r'(?:第)?(\d+)(?:-(\d+))?节').firstMatch(line);
+    if (sectionMatch != null) {
+      final startSectionStr = sectionMatch.group(1)!;
+      final endSectionStr = sectionMatch.group(2) ?? startSectionStr;
+      final parsedStart = int.tryParse(startSectionStr);
+      final parsedEnd = int.tryParse(endSectionStr);
+      if (parsedStart != null) {
+        startSection = parsedStart;
+        endSection = parsedEnd ?? parsedStart;
+        sectionRaw ??= line;
+      }
+    }
+
+    if (startWeek == null &&
+        endWeek == null &&
+        startSection == null &&
+        endSection == null) {
+      return null;
+    }
+
+    return _ScheduleParseResult(
+      startWeek: startWeek,
+      endWeek: endWeek,
+      startSection: startSection,
+      endSection: endSection,
+      weekRaw: weekRaw,
+      sectionRaw: sectionRaw,
+      extraNote: extraNote,
+    );
+  }
+
+  _NumberRange? _parseNumberRangeSpec(String spec) {
+    final cleaned = spec.replaceAll(RegExp(r'[^0-9,，、\-]'), '');
+    if (cleaned.isEmpty) {
+      return null;
+    }
+    final tokens = cleaned
+        .split(RegExp(r'[，,、]'))
+        .map((token) => token.trim())
+        .where((token) => token.isNotEmpty)
+        .toList();
+    if (tokens.isEmpty) {
+      return null;
+    }
+
+    int? minValue;
+    int? maxValue;
+    for (final token in tokens) {
+      if (token.contains('-')) {
+        final parts = token
+            .split('-')
+            .map((part) => part.trim())
+            .where((part) => part.isNotEmpty)
+            .toList();
+        if (parts.isEmpty) {
+          continue;
+        }
+        final start = int.tryParse(parts.first);
+        final end = int.tryParse(parts.length > 1 ? parts.last : parts.first);
+        if (start == null) {
+          continue;
+        }
+        final normalizedStart = start;
+        final normalizedEnd = end ?? start;
+        minValue = minValue == null
+            ? min(normalizedStart, normalizedEnd)
+            : min(minValue!, min(normalizedStart, normalizedEnd));
+        maxValue = maxValue == null
+            ? max(normalizedStart, normalizedEnd)
+            : max(maxValue!, max(normalizedStart, normalizedEnd));
+      } else {
+        final value = int.tryParse(token);
+        if (value == null) {
+          continue;
+        }
+        minValue = minValue == null ? value : min(minValue!, value);
+        maxValue = maxValue == null ? value : max(maxValue!, value);
+      }
+    }
+
+    if (minValue == null || maxValue == null) {
+      return null;
+    }
+
+    final isContinuous =
+        !(spec.contains(',') || spec.contains('，') || spec.contains('、'));
+
+    return _NumberRange(
+      start: minValue!,
+      end: maxValue!,
+      isContinuous: isContinuous,
+    );
+  }
+}
+
+class _ScheduleParseResult {
+  const _ScheduleParseResult({
+    this.startWeek,
+    this.endWeek,
+    this.startSection,
+    this.endSection,
+    this.weekRaw,
+    this.sectionRaw,
+    this.extraNote,
+  });
+
+  final int? startWeek;
+  final int? endWeek;
+  final int? startSection;
+  final int? endSection;
+  final String? weekRaw;
+  final String? sectionRaw;
+  final String? extraNote;
+}
+
+class _NumberRange {
+  const _NumberRange({
+    required this.start,
+    required this.end,
+    required this.isContinuous,
+  });
+
+  final int start;
+  final int end;
+  final bool isContinuous;
 }
