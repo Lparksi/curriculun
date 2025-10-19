@@ -90,6 +90,30 @@ jobs:
           VERSION_NAME=$(echo $VERSION | cut -d'+' -f1)
           VERSION_CODE=$(echo $VERSION | cut -d'+' -f2)
 
+          VERSION_CODE_FILE="android/version_code.txt"
+          if [[ -f "$VERSION_CODE_FILE" ]]; then
+            STORED_CODE=$(cat "$VERSION_CODE_FILE")
+          else
+            STORED_CODE=0
+          fi
+
+          if [[ ! "$STORED_CODE" =~ ^[0-9]+$ ]]; then
+            STORED_CODE=0
+          fi
+
+          CURRENT_CODE=${VERSION_CODE:-0}
+          if [[ ! "$CURRENT_CODE" =~ ^[0-9]+$ ]]; then
+            CURRENT_CODE=0
+          fi
+
+          if (( STORED_CODE <= CURRENT_CODE )); then
+            NEXT_CODE=$(( CURRENT_CODE + 1 ))
+          else
+            NEXT_CODE=$(( STORED_CODE + 1 ))
+          fi
+
+          VERSION_CODE=$NEXT_CODE
+
           # 根据分支/标签添加版本标识
           if [[ "${{ github.ref }}" == refs/tags/* ]]; then
             # Tag 构建：使用 tag 名称（去除 v 前缀）
@@ -351,6 +375,25 @@ jobs:
     if: always() && needs.prepare.result == 'success'
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Update version code file
+        if: ${{ needs.prepare.outputs.version_code }}
+        run: |
+          echo "${{ needs.prepare.outputs.version_code }}" > android/version_code.txt
+          cat android/version_code.txt
+      - name: Commit updated version code
+        if: ${{ needs.prepare.outputs.version_code }}
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add android/version_code.txt
+          git commit -m "ci: update version code to ${{ needs.prepare.outputs.version_code }}" || echo "No changes to commit"
+          git push
+
       - name: Download Split APKs
         uses: actions/download-artifact@v4
         with:
