@@ -3,6 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
+import '../services/course_import/course_html_import_service.dart';
+import '../services/course_import/models/course_import_models.dart';
+import '../services/course_service.dart';
+
 /// 教务系统导入页面
 /// 提供 WebView 功能让用户登录教务系统并导航到课程表页面
 /// 后续将实现自动提取 HTML 并解析课程数据
@@ -19,6 +23,8 @@ class _CourseImportWebViewPageState extends State<CourseImportWebViewPage> {
   late final TextEditingController _urlController;
   late final FocusNode _urlFocusNode;
 
+  final CourseHtmlImportService _importService = CourseHtmlImportService();
+
   bool _isLoading = true;
   String _currentUrl = 'https://cn.bing.com/';
   double _loadingProgress = 0;
@@ -26,6 +32,7 @@ class _CourseImportWebViewPageState extends State<CourseImportWebViewPage> {
   bool _canGoForward = false;
   bool _isEditingUrl = false;
   bool _isMobileMode = true; // 默认为移动端模式
+  bool _isParsingCourses = false;
 
   // 默认主页地址
   static const String _defaultHomeUrl = 'https://cn.bing.com/';
@@ -194,6 +201,513 @@ class _CourseImportWebViewPageState extends State<CourseImportWebViewPage> {
     }
   }
 
+  /// 解析页面课程数据并展示导入预览
+  Future<void> _parseAndPreviewCourses() async {
+    if (_isParsingCourses) {
+      return;
+    }
+    setState(() {
+      _isParsingCourses = true;
+    });
+
+    try {
+      final result =
+          await _controller.runJavaScriptReturningResult(
+        'document.documentElement.outerHTML',
+      );
+
+      if (!mounted) return;
+
+      final html = result is String ? result : result.toString();
+
+      if (html.trim().isEmpty) {
+        _showErrorSnackBar('未获取到页面 HTML 内容');
+        return;
+      }
+
+      final parseResult = _importService.parseHtml(
+        CourseImportSource(
+          rawContent: html,
+          origin: Uri.tryParse(_currentUrl),
+        ),
+      );
+
+      if (!mounted) return;
+
+      if (parseResult.status == ParseStatus.needAdditionalInput) {
+        await _showAdditionalInputDialog(parseResult);
+        return;
+      }
+
+      if (!parseResult.isSuccess || parseResult.courses.isEmpty) {
+        final message = parseResult.messages.isNotEmpty
+            ? parseResult.messages.first.message
+            : '未解析到任何课程信息';
+        _showErrorSnackBar(message);
+        return;
+      }
+
+      final existingCourses = await CourseService.loadAllCourses();
+      if (!mounted) return;
+
+      final append = await _showCourseImportPreview(
+        parseResult: parseResult,
+        existingCount: existingCourses.length,
+      );
+
+      if (append == null) {
+        return;
+      }
+
+      await _importService.persistParsedCourses(
+        parseResult.courses,
+        append: append,
+      );
+
+      if (!mounted) return;
+
+      final modeText = append ? '追加' : '覆盖';
+      _showSuccessSnackBar('已$modeText ${parseResult.courses.length} 门课程');
+    } catch (e) {
+      debugPrint('解析课程失败: $e');
+      if (mounted) {
+        _showErrorSnackBar('解析课程失败: $e');
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isParsingCourses = false;
+        });
+      }
+    }
+  }
+
+  Future<bool?> _showCourseImportPreview({
+    required CourseImportResult parseResult,
+    required int existingCount,
+  }) {
+    return showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) {
+        bool append = true;
+        final courses = parseResult.courses;
+
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return SafeArea(
+              child: Padding(
+                padding: EdgeInsets.only(
+                  left: 16,
+                  right: 16,
+                  top: 12,
+                  bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+                ),
+                child: SizedBox(
+                  height: MediaQuery.of(context).size.height * 0.75,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 40,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .outlineVariant,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        '导入课程预览',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '检测到 ${courses.length} 门课程；当前课程表包含 $existingCount 门课程。请选择导入方式并确认变更。',
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodySmall
+                            ?.copyWith(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant,
+                            ),
+                      ),
+                      if (parseResult.messages.isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        ...parseResult.messages.map(
+                          (message) => _buildMessageBanner(
+                            context,
+                            message,
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 12),
+                      Text(
+                        '导入方式',
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
+                      const SizedBox(height: 8),
+                      SegmentedButton<bool>(
+                        segments: [
+                          ButtonSegment<bool>(
+                            value: true,
+                            label: const Text('追加到现有课程'),
+                            icon: const Icon(Icons.playlist_add),
+                          ),
+                          ButtonSegment<bool>(
+                            value: false,
+                            label: const Text('覆盖现有课程'),
+                            icon: const Icon(Icons.auto_delete),
+                          ),
+                        ],
+                        selected: <bool>{append},
+                        onSelectionChanged: (selection) {
+                          if (selection.isEmpty) return;
+                          setModalState(() {
+                            append = selection.first;
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        append
+                            ? '保留原有课程，并追加解析到的课程。'
+                            : '警告：将清空现有课程，仅保留此次解析结果。',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: append
+                                  ? Theme.of(context)
+                                      .colorScheme
+                                      .onSurfaceVariant
+                                  : Theme.of(context).colorScheme.error,
+                            ),
+                      ),
+                      const SizedBox(height: 12),
+                      Expanded(
+                        child: ListView.separated(
+                          itemCount: courses.length,
+                          separatorBuilder: (context, _) =>
+                              const SizedBox(height: 8),
+                          itemBuilder: (context, index) {
+                            final course = courses[index];
+                            return _buildCoursePreviewTile(course);
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text('取消'),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: FilledButton(
+                              onPressed: () =>
+                                  Navigator.pop(context, append),
+                              child: Text(
+                                append ? '追加这些课程' : '覆盖后导入',
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _showAdditionalInputDialog(
+    CourseImportResult parseResult,
+  ) {
+    return showDialog<void>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('需要额外页面内容'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ...parseResult.messages.map(
+                    (message) => Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: _buildMessageBanner(context, message),
+                    ),
+                  ),
+                  if (parseResult.frameRequests.isNotEmpty) ...[
+                    Text(
+                      '请同时获取以下 iframe 页面内容：',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    ...parseResult.frameRequests.map(
+                      (frame) => Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (frame.description != null)
+                              Text(
+                                frame.description!,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurfaceVariant,
+                                    ),
+                              ),
+                            SelectableText(
+                              frame.src,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontFamily: 'monospace',
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 8),
+                  Text(
+                    '可以在 WebView 中执行以下脚本以获取课程 iframe 的 HTML：',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 8),
+                  SelectableText(
+                    'document.getElementById("frmDesk").contentWindow.document.documentElement.outerHTML',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontFamily: 'monospace',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('我知道了'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildMessageBanner(
+    BuildContext context,
+    CourseImportMessage message,
+  ) {
+    final colorScheme = Theme.of(context).colorScheme;
+    Color background;
+    Color foreground;
+    IconData icon;
+
+    switch (message.severity) {
+      case ParserMessageSeverity.info:
+        background = colorScheme.primaryContainer;
+        foreground = colorScheme.onPrimaryContainer;
+        icon = Icons.info_outline;
+        break;
+      case ParserMessageSeverity.warning:
+        background = colorScheme.tertiaryContainer;
+        foreground = colorScheme.onTertiaryContainer;
+        icon = Icons.warning_amber_outlined;
+        break;
+      case ParserMessageSeverity.error:
+        background = colorScheme.errorContainer;
+        foreground = colorScheme.onErrorContainer;
+        icon = Icons.error_outline;
+        break;
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: foreground),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  message.message,
+                  style: TextStyle(
+                    color: foreground,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                if (message.detail != null &&
+                    message.detail!.trim().isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      message.detail!,
+                      style: TextStyle(
+                        color: foreground.withValues(alpha: 0.9),
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCoursePreviewTile(ParsedCourse course) {
+    final detailParts = <String>[
+      _weekdayLabel(course.weekday),
+      _formatSectionRange(course),
+      _formatWeekRange(course),
+    ]..removeWhere((element) => element.isEmpty);
+
+    final infoParts = <String>[];
+    if (course.teacher.isNotEmpty) {
+      infoParts.add(course.teacher);
+    }
+    if (course.location.isNotEmpty) {
+      infoParts.add(course.location);
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.outlineVariant,
+        ),
+      ),
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            course.name,
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          if (detailParts.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                detailParts.join(' · '),
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ),
+          if (infoParts.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                infoParts.join(' · '),
+                style: Theme.of(context)
+                    .textTheme
+                    .bodySmall
+                    ?.copyWith(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurfaceVariant,
+                    ),
+              ),
+            ),
+          if (course.notes.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: course.notes
+                    .map(
+                      (note) => Text(
+                        note,
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodySmall
+                            ?.copyWith(fontStyle: FontStyle.italic),
+                      ),
+                    )
+                    .toList(),
+              ),
+            ),
+          if (course.rawWeeks != null &&
+              course.rawWeeks!.trim().isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                '原始周次信息：${course.rawWeeks!}',
+                style: Theme.of(context)
+                    .textTheme
+                    .labelSmall
+                    ?.copyWith(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurfaceVariant,
+                    ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  String _weekdayLabel(int weekday) {
+    const names = [
+      '周一',
+      '周二',
+      '周三',
+      '周四',
+      '周五',
+      '周六',
+      '周日',
+    ];
+    if (weekday >= 1 && weekday <= names.length) {
+      return names[weekday - 1];
+    }
+    return '星期$weekday';
+  }
+
+  String _formatSectionRange(ParsedCourse course) {
+    final end = course.startSection + course.duration - 1;
+    if (course.duration <= 1) {
+      return '第${course.startSection}节';
+    }
+    return '第${course.startSection}-$end节';
+  }
+
+  String _formatWeekRange(ParsedCourse course) {
+    if (course.startWeek == course.endWeek) {
+      return '第${course.startWeek}周';
+    }
+    return '第${course.startWeek}-${course.endWeek}周';
+  }
+
   /// 显示 HTML 预览对话框（调试用）
   void _showHtmlPreviewDialog(String html) {
     showDialog(
@@ -300,6 +814,13 @@ class _CourseImportWebViewPageState extends State<CourseImportWebViewPage> {
         title: const Text('从教务系统导入'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         actions: [
+          // 解析课程并导入
+          IconButton(
+            icon: const Icon(Icons.fact_check),
+            tooltip: '解析课程并导入',
+            onPressed:
+                _isParsingCourses ? null : _parseAndPreviewCourses,
+          ),
           // 复制 HTML 按钮（调试用）
           IconButton(
             icon: const Icon(Icons.copy),

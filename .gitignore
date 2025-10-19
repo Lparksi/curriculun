@@ -50,3 +50,5 @@ android/app/google-services.json
 
 # Development tools
 devtools_options.yaml
+
+/codetest
