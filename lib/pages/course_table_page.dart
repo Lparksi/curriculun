@@ -19,6 +19,7 @@ import 'course_management_page.dart';
 import 'time_table_management_page.dart';
 import 'data_management_page.dart';
 import 'privacy_policy_page.dart';
+import 'help_page.dart';
 
 /// 课程表主页面
 class CourseTablePage extends StatefulWidget {
@@ -1002,10 +1003,7 @@ class _CourseTablePageState extends State<CourseTablePage> {
             subtitle: const Text('使用指南和常见问题'),
             onTap: () {
               Navigator.pop(context);
-              // TODO: 实现帮助页面
-              ScaffoldMessenger.of(
-                context,
-              ).showSnackBar(const SnackBar(content: Text('帮助页面正在开发中...')));
+              HelpPage.show(context);
             },
           ),
           ListTile(
