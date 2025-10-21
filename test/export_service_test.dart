@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:curriculum/services/export_service.dart';
 import 'package:curriculum/services/course_service.dart';
 import 'package:curriculum/services/settings_service.dart';
+import 'package:curriculum/services/time_table_service.dart';
 import 'package:curriculum/services/config_version_manager.dart';
 import 'package:curriculum/models/course.dart';
 import 'package:curriculum/models/semester_settings.dart';
@@ -226,6 +227,198 @@ void main() {
 
       final result3 = ImportResult(success: true);
       expect(result3.getSummary(), equals('未导入任何数据'));
+    });
+
+    // ========== 版本管理测试 (5个新用例) ==========
+    test('importAllData should upgrade from 1.0.0 to 1.1.0', () async {
+      // Given: 旧版本 (1.0.0) 的导出数据
+      final oldVersionData = {
+        'version': '1.0.0',
+        'exportTime': DateTime.now().toIso8601String(),
+        'data': {
+          'courses': [
+            {
+              'name': '旧版课程',
+              'location': '地点',
+              'teacher': '老师',
+              'weekday': 1,
+              'startSection': 1,
+              'duration': 2,
+              'color': '#FF0000',
+              'startWeek': 1,
+              'endWeek': 16,
+              // 1.0.0 版本没有 semesterId 和 isHidden
+            }
+          ],
+        },
+      };
+
+      final jsonString = jsonEncode(oldVersionData);
+
+      // When: 导入旧版本数据
+      final result = await ExportService.importAllData(jsonString, merge: false);
+
+      // Then: 导入成功，数据已升级
+      expect(result.success, isTrue);
+      expect(result.coursesImported, equals(1));
+
+      // 验证升级后的数据包含新字段
+      final courses = await CourseService.loadAllCourses();
+      expect(courses, hasLength(1));
+      expect(courses[0].name, equals('旧版课程'));
+      expect(courses[0].semesterId, isNull); // 默认值
+      expect(courses[0].isHidden, isFalse); // 默认值
+    });
+
+    test('importAllData should handle invalid version format', () async {
+      // Given: 无效版本号的数据
+      final invalidVersionData = {
+        'version': 'invalid.version.format',
+        'exportTime': DateTime.now().toIso8601String(),
+        'data': {
+          'courses': [],
+        },
+      };
+
+      final jsonString = jsonEncode(invalidVersionData);
+
+      // When: 尝试导入
+      final result = await ExportService.importAllData(jsonString);
+
+      // Then: 导入失败，错误信息包含版本相关提示
+      expect(result.success, isFalse);
+      expect(result.error, isNotNull);
+    });
+
+    test('version upgrade should preserve existing data integrity', () async {
+      // Given: 旧版本数据包含多个课程
+      final oldVersionData = {
+        'version': '1.0.0',
+        'exportTime': DateTime.now().toIso8601String(),
+        'data': {
+          'courses': [
+            {
+              'name': '课程1',
+              'location': '地点1',
+              'teacher': '老师1',
+              'weekday': 1,
+              'startSection': 1,
+              'duration': 2,
+              'color': '#FF0000',
+              'startWeek': 1,
+              'endWeek': 16,
+            },
+            {
+              'name': '课程2',
+              'location': '地点2',
+              'teacher': '老师2',
+              'weekday': 2,
+              'startSection': 3,
+              'duration': 2,
+              'color': '#00FF00',
+              'startWeek': 1,
+              'endWeek': 16,
+            },
+          ],
+        },
+      };
+
+      final jsonString = jsonEncode(oldVersionData);
+
+      // When: 导入并升级
+      final result = await ExportService.importAllData(jsonString, merge: false);
+
+      // Then: 所有课程都正确升级
+      expect(result.success, isTrue);
+      expect(result.coursesImported, equals(2));
+
+      final courses = await CourseService.loadAllCourses();
+      expect(courses, hasLength(2));
+
+      // 验证原有字段完整性
+      expect(courses[0].name, equals('课程1'));
+      expect(courses[0].location, equals('地点1'));
+      expect(courses[0].teacher, equals('老师1'));
+      expect(courses[1].name, equals('课程2'));
+      expect(courses[1].location, equals('地点2'));
+      expect(courses[1].teacher, equals('老师2'));
+    });
+
+    test('exportSemesters should export semesters only', () async {
+      // Given: 保存一些学期数据
+      final semester1 = SemesterSettings(
+        id: 'semester_1',
+        name: '2024秋季学期',
+        startDate: DateTime(2024, 9, 1),
+        totalWeeks: 16,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+
+      final semester2 = SemesterSettings(
+        id: 'semester_2',
+        name: '2025春季学期',
+        startDate: DateTime(2025, 3, 1),
+        totalWeeks: 18,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+
+      await SettingsService.addSemester(semester1);
+      await SettingsService.addSemester(semester2);
+
+      // When: 仅导出学期数据
+      final jsonString = await ExportService.exportSemesters();
+      final jsonData = jsonDecode(jsonString) as Map<String, dynamic>;
+
+      // Then: 只包含学期数据，不包含课程和时间表
+      final data = jsonData['data'] as Map<String, dynamic>;
+      expect(data, contains('semesters'));
+      expect(data, isNot(contains('courses')));
+      expect(data, isNot(contains('timeTables')));
+
+      // 验证学期数据完整
+      final semesters = data['semesters'] as List<dynamic>;
+      expect(semesters.length, greaterThanOrEqualTo(2));
+
+      final semesterNames = semesters
+          .map((s) => (s as Map<String, dynamic>)['name'] as String)
+          .toList();
+      expect(semesterNames, contains('2024秋季学期'));
+      expect(semesterNames, contains('2025春季学期'));
+    });
+
+    test('exportTimeTables should export time tables only', () async {
+      // Given: 获取或创建时间表
+      final activeTimeTable = await TimeTableService.getActiveTimeTable();
+
+      // When: 仅导出时间表数据
+      final jsonString = await ExportService.exportTimeTables();
+      final jsonData = jsonDecode(jsonString) as Map<String, dynamic>;
+
+      // Then: 只包含时间表数据，不包含课程和学期
+      final data = jsonData['data'] as Map<String, dynamic>;
+      expect(data, contains('timeTables'));
+      expect(data, isNot(contains('courses')));
+      expect(data, isNot(contains('semesters')));
+
+      // 验证时间表数据完整
+      final timeTables = data['timeTables'] as List<dynamic>;
+      expect(timeTables, hasLength(greaterThanOrEqualTo(1)));
+
+      final firstTimeTable = timeTables[0] as Map<String, dynamic>;
+      expect(firstTimeTable, contains('id'));
+      expect(firstTimeTable, contains('name'));
+      expect(firstTimeTable, contains('sections'));
+
+      // 验证节次数据结构
+      final sections = firstTimeTable['sections'] as List<dynamic>;
+      expect(sections, isNotEmpty);
+
+      final firstSection = sections[0] as Map<String, dynamic>;
+      expect(firstSection, contains('section'));
+      expect(firstSection, contains('startTime'));
+      expect(firstSection, contains('endTime'));
     });
   });
 }
