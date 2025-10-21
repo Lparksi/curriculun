@@ -591,17 +591,17 @@ class KingosoftCourseParser implements CourseHtmlParser {
         final normalizedEnd = end ?? start;
         minValue = minValue == null
             ? min(normalizedStart, normalizedEnd)
-            : min(minValue!, min(normalizedStart, normalizedEnd));
+            : min(minValue, min(normalizedStart, normalizedEnd));
         maxValue = maxValue == null
             ? max(normalizedStart, normalizedEnd)
-            : max(maxValue!, max(normalizedStart, normalizedEnd));
+            : max(maxValue, max(normalizedStart, normalizedEnd));
       } else {
         final value = int.tryParse(token);
         if (value == null) {
           continue;
         }
-        minValue = minValue == null ? value : min(minValue!, value);
-        maxValue = maxValue == null ? value : max(maxValue!, value);
+        minValue = minValue == null ? value : min(minValue, value);
+        maxValue = maxValue == null ? value : max(maxValue, value);
       }
     }
 
@@ -613,8 +613,8 @@ class KingosoftCourseParser implements CourseHtmlParser {
         !(spec.contains(',') || spec.contains('，') || spec.contains('、'));
 
     return _NumberRange(
-      start: minValue!,
-      end: maxValue!,
+      start: minValue,
+      end: maxValue,
       isContinuous: isContinuous,
     );
   }
