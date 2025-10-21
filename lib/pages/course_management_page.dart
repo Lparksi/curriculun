@@ -26,16 +26,33 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
   bool _isMultiSelectMode = false; // 是否处于多选模式
   final Set<int> _selectedIndices = {}; // 选中的课程索引
 
+  // 搜索相关状态
+  bool _isSearchMode = false; // 是否处于搜索模式
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = ''; // 搜索关键词
+
   @override
   void initState() {
     super.initState();
     _loadCourses();
+    // 监听搜索框变化
+    _searchController.addListener(() {
+      setState(() {
+        _searchQuery = _searchController.text;
+      });
+    });
     // 如果需要自动打开新建对话框，在加载完成后打开
     if (widget.autoShowAddDialog) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _showEditDialog();
       });
     }
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   /// 加载课程列表
@@ -267,6 +284,32 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
     });
   }
 
+  /// 切换搜索模式
+  void _toggleSearchMode() {
+    setState(() {
+      _isSearchMode = !_isSearchMode;
+      if (!_isSearchMode) {
+        _searchController.clear();
+        _searchQuery = '';
+      }
+    });
+  }
+
+  /// 根据搜索关键词过滤课程
+  List<Course> get _filteredCourses {
+    if (_searchQuery.isEmpty) {
+      return _courses;
+    }
+
+    final query = _searchQuery.toLowerCase();
+    return _courses.where((course) {
+      // 搜索课程名称、教师、地点
+      return course.name.toLowerCase().contains(query) ||
+          course.teacher.toLowerCase().contains(query) ||
+          course.location.toLowerCase().contains(query);
+    }).toList();
+  }
+
   /// 切换单个课程的选中状态
   void _toggleSelection(int index) {
     setState(() {
@@ -363,54 +406,116 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: _isMultiSelectMode
-            ? Text('已选择 ${_selectedIndices.length} 项')
-            : const Text('课程管理'),
-        leading: _isMultiSelectMode
+        title: _isSearchMode
+            ? TextField(
+                controller: _searchController,
+                autofocus: true,
+                decoration: InputDecoration(
+                  hintText: '搜索课程名、教师或地点...',
+                  border: InputBorder.none,
+                  hintStyle: TextStyle(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.6),
+                  ),
+                ),
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface,
+                  fontSize: 16,
+                ),
+              )
+            : _isMultiSelectMode
+                ? Text('已选择 ${_selectedIndices.length} 项')
+                : const Text('课程管理'),
+        leading: _isSearchMode || _isMultiSelectMode
             ? IconButton(
                 icon: const Icon(Icons.close),
-                onPressed: _toggleMultiSelectMode,
+                onPressed:
+                    _isSearchMode ? _toggleSearchMode : _toggleMultiSelectMode,
                 tooltip: '取消',
               )
             : null,
-        actions: _isMultiSelectMode
+        actions: _isSearchMode
             ? [
-                IconButton(
-                  icon: Icon(
-                    _selectedIndices.length == _courses.length
-                        ? Icons.check_box
-                        : Icons.check_box_outline_blank,
+                if (_searchQuery.isNotEmpty)
+                  IconButton(
+                    icon: const Icon(Icons.clear),
+                    onPressed: () {
+                      _searchController.clear();
+                    },
+                    tooltip: '清空',
                   ),
-                  onPressed: _toggleSelectAll,
-                  tooltip: _selectedIndices.length == _courses.length
-                      ? '取消全选'
-                      : '全选',
-                ),
-                IconButton(
-                  icon: const Icon(Icons.delete),
-                  onPressed: _selectedIndices.isEmpty ? null : _deleteSelected,
-                  tooltip: '删除',
-                ),
               ]
-            : [
-                IconButton(
-                  icon: const Icon(Icons.checklist),
-                  onPressed: _toggleMultiSelectMode,
-                  tooltip: '多选',
-                ),
-                IconButton(
-                  icon: const Icon(Icons.restore),
-                  onPressed: _resetToDefault,
-                  tooltip: '恢复默认',
-                ),
-              ],
+            : _isMultiSelectMode
+                ? [
+                    IconButton(
+                      icon: Icon(
+                        _selectedIndices.length == _filteredCourses.length
+                            ? Icons.check_box
+                            : Icons.check_box_outline_blank,
+                      ),
+                      onPressed: _toggleSelectAll,
+                      tooltip: _selectedIndices.length == _filteredCourses.length
+                          ? '取消全选'
+                          : '全选',
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.delete),
+                      onPressed:
+                          _selectedIndices.isEmpty ? null : _deleteSelected,
+                      tooltip: '删除',
+                    ),
+                  ]
+                : [
+                    IconButton(
+                      icon: const Icon(Icons.search),
+                      onPressed: _toggleSearchMode,
+                      tooltip: '搜索',
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.checklist),
+                      onPressed: _toggleMultiSelectMode,
+                      tooltip: '多选',
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.restore),
+                      onPressed: _resetToDefault,
+                      tooltip: '恢复默认',
+                    ),
+                  ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _courses.isEmpty
-          ? _buildEmptyState()
-          : _buildCourseList(),
-      floatingActionButton: _isMultiSelectMode
+              ? _buildEmptyState()
+              : Column(
+                  children: [
+                    // 搜索结果提示
+                    if (_searchQuery.isNotEmpty)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        color: Theme.of(context)
+                            .colorScheme
+                            .secondaryContainer
+                            .withValues(alpha: 0.3),
+                        child: Text(
+                          '找到 ${_filteredCourses.length} 门课程',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSecondaryContainer,
+                              ),
+                        ),
+                      ),
+                    Expanded(child: _buildCourseList()),
+                  ],
+                ),
+      floatingActionButton: _isMultiSelectMode || _isSearchMode
           ? null
           : FloatingActionButton(
               onPressed: () => _showEditDialog(),
@@ -456,12 +561,55 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
 
   /// 构建课程列表
   Widget _buildCourseList() {
+    // 使用过滤后的课程
+    final displayCourses = _filteredCourses;
+
     // 按课程名称分组
     final coursesByName = <String, List<MapEntry<int, Course>>>{};
     for (int i = 0; i < _courses.length; i++) {
       final course = _courses[i];
+      // 只显示过滤后的课程
+      if (!displayCourses.contains(course)) continue;
+
       coursesByName.putIfAbsent(course.name, () => []);
       coursesByName[course.name]!.add(MapEntry(i, course));
+    }
+
+    // 如果过滤后没有课程，显示空状态
+    if (coursesByName.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.search_off,
+              size: 80,
+              color:
+                  Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              '没有找到匹配的课程',
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.6),
+                  ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '尝试使用其他关键词搜索',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.5),
+                  ),
+            ),
+          ],
+        ),
+      );
     }
 
     // 按课程名称排序
@@ -511,12 +659,12 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: Text(
+                child: _buildHighlightedText(
                   courseName,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
+                  Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -646,10 +794,9 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                             ),
                             const SizedBox(width: 4),
                             Expanded(
-                              child: Text(
+                              child: _buildHighlightedText(
                                 course.location,
-                                style: Theme.of(context).textTheme.bodySmall
-                                    ?.copyWith(
+                                Theme.of(context).textTheme.bodySmall?.copyWith(
                                       color: Theme.of(
                                         context,
                                       ).colorScheme.onSurfaceVariant,
@@ -675,14 +822,15 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
                                   ).colorScheme.onSurfaceVariant,
                                 ),
                                 const SizedBox(width: 4),
-                                Text(
+                                _buildHighlightedText(
                                   course.teacher,
-                                  style: Theme.of(context).textTheme.bodySmall
-                                      ?.copyWith(
+                                  Theme.of(context).textTheme.bodySmall?.copyWith(
                                         color: Theme.of(
                                           context,
                                         ).colorScheme.onSurfaceVariant,
                                       ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                                 const SizedBox(width: 12),
                               ],
@@ -738,6 +886,72 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
           ),
         ),
       ),
+    );
+  }
+
+  /// 构建带高亮的文本
+  Widget _buildHighlightedText(
+    String text,
+    TextStyle? style, {
+    int maxLines = 1,
+    TextOverflow overflow = TextOverflow.ellipsis,
+  }) {
+    if (_searchQuery.isEmpty) {
+      return Text(
+        text,
+        style: style,
+        maxLines: maxLines,
+        overflow: overflow,
+      );
+    }
+
+    final query = _searchQuery.toLowerCase();
+    final textLower = text.toLowerCase();
+
+    if (!textLower.contains(query)) {
+      return Text(
+        text,
+        style: style,
+        maxLines: maxLines,
+        overflow: overflow,
+      );
+    }
+
+    final spans = <TextSpan>[];
+    int currentIndex = 0;
+
+    while (currentIndex < text.length) {
+      final matchIndex = textLower.indexOf(query, currentIndex);
+      if (matchIndex == -1) {
+        // 没有更多匹配，添加剩余文本
+        spans.add(TextSpan(text: text.substring(currentIndex)));
+        break;
+      }
+
+      // 添加匹配前的文本
+      if (matchIndex > currentIndex) {
+        spans.add(TextSpan(text: text.substring(currentIndex, matchIndex)));
+      }
+
+      // 添加高亮的匹配文本
+      spans.add(
+        TextSpan(
+          text: text.substring(matchIndex, matchIndex + query.length),
+          style: TextStyle(
+            backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+            color: Theme.of(context).colorScheme.onPrimaryContainer,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      );
+
+      currentIndex = matchIndex + query.length;
+    }
+
+    return RichText(
+      text: TextSpan(style: style, children: spans),
+      maxLines: maxLines,
+      overflow: overflow,
     );
   }
 
