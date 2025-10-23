@@ -134,9 +134,12 @@ class KingosoftCourseParser implements CourseHtmlParser {
   }
 
   Element? _findTimetableTable(Document document) {
+    // 直接查找常见的课表表格ID和类名
     final direct =
         document.querySelector('#kbtable') ??
-        document.querySelector('table.kbtable');
+        document.querySelector('table.kbtable') ??
+        document.querySelector('#mytable') ??  // 安阳师范学院等系统
+        document.querySelector('table#mytable');
     if (direct != null) {
       return direct;
     }
@@ -151,8 +154,14 @@ class KingosoftCourseParser implements CourseHtmlParser {
       final hits = _weekdayKeywords
           .where((keyword) => text.contains(keyword))
           .length;
+      
+      // 扩展节次提示的检测，支持更多格式
       final hasSectionHints =
-          text.contains('节次') || RegExp(r'第\s*\d+\s*节').hasMatch(text);
+          text.contains('节次') ||
+          RegExp(r'第\s*\d+\s*节').hasMatch(text) ||
+          // 支持"上午"、"下午"、"晚上"这种时间段标记
+          (text.contains('上午') || text.contains('下午') || text.contains('晚上'));
+      
       if (hits >= 2 && hasSectionHints && hits >= bestScore) {
         bestMatch = table;
         bestScore = hits;
@@ -281,6 +290,12 @@ class KingosoftCourseParser implements CourseHtmlParser {
     required int startSection,
     required int duration,
   }) {
+    // 跳过节次标记单元格（通常有 td1 类）
+    final cellClass = cell.attributes['class'] ?? '';
+    if (cellClass.contains('td1')) {
+      return const <ParsedCourse>[];
+    }
+
     final courseNodes = cell.getElementsByClassName('kbcontent');
     if (courseNodes.isEmpty) {
       final lines = _extractLines(cell);
