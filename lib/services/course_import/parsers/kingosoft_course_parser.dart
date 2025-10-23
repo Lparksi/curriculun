@@ -99,6 +99,7 @@ class KingosoftCourseParser implements CourseHtmlParser {
       );
     }
 
+    // 查找常见的课表 iframe
     final iframe =
         document.querySelector('iframe#frmDesk') ??
         document.querySelector('iframe[name="frmDesk"]') ??
@@ -119,6 +120,43 @@ class KingosoftCourseParser implements CourseHtmlParser {
           ),
         ],
       );
+    }
+
+    // 如果是青果系统但没有找到课表表格和特定iframe，尝试查找所有iframe
+    final title = document.querySelector('title')?.text ?? '';
+    final normalized = context.normalizedHtml;
+    final hasBrandKeyword = <String>[
+      'KINGOSOFT',
+      '教学综合管理服务平台',
+      '教务综合管理服务平台',
+    ].any((keyword) => title.contains(keyword) || normalized.contains(keyword));
+
+    if (hasBrandKeyword) {
+      final allIframes = document.querySelectorAll('iframe');
+      if (allIframes.isNotEmpty) {
+        // 返回所有iframe的请求，让应用尝试抓取
+        final frameRequests = allIframes
+            .map((iframe) => FrameRequest(
+                  src: iframe.attributes['src'] ?? '',
+                  description: 'iframe 内容',
+                ))
+            .where((request) => request.src.isNotEmpty)
+            .toList();
+        
+        if (frameRequests.isNotEmpty) {
+          return CourseImportParseResult(
+            parserId: id,
+            status: ParseStatus.needAdditionalInput,
+            frameRequests: frameRequests,
+            messages: [
+              CourseImportMessage(
+                severity: ParserMessageSeverity.info,
+                message: '检测到 ${frameRequests.length} 个 iframe，将尝试自动抓取课表内容',
+              ),
+            ],
+          );
+        }
+      }
     }
 
     return CourseImportParseResult(

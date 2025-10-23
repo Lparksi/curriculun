@@ -723,16 +723,49 @@ class _CourseImportWebViewPageState extends State<CourseImportWebViewPage> {
     final escapedSrc = frame.src.replaceAll('"', r'\"');
     return '''
 (() => {
+  // 递归查找所有iframe（包括嵌套的）
+  function findAllIframes(doc) {
+    const iframes = [];
+    const iframeElements = doc.querySelectorAll('iframe');
+    for (const iframe of iframeElements) {
+      iframes.push(iframe);
+      try {
+        const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+        if (iframeDoc) {
+          iframes.push(...findAllIframes(iframeDoc));
+        }
+      } catch (e) {
+        // 跨域iframe无法访问，跳过
+      }
+    }
+    return iframes;
+  }
+
+  // 首先尝试查找特定的iframe
   const candidates = [
     document.getElementById("frmDesk"),
     document.querySelector('iframe[src*="$escapedSrc"]')
   ].filter(Boolean);
+  
   for (const candidate of candidates) {
     const doc = candidate.contentDocument || candidate.contentWindow?.document;
     if (doc && doc.documentElement) {
       return doc.documentElement.outerHTML ?? '';
     }
   }
+
+  // 如果没找到特定iframe，递归查找所有iframe并返回第一个可访问的
+  const allIframes = findAllIframes(document);
+  for (const iframe of allIframes) {
+    const src = iframe.src || iframe.getAttribute('src') || '';
+    if (src && src.includes('$escapedSrc')) {
+      const doc = iframe.contentDocument || iframe.contentWindow?.document;
+      if (doc && doc.documentElement) {
+        return doc.documentElement.outerHTML ?? '';
+      }
+    }
+  }
+
   return '';
 })()
 ''';
