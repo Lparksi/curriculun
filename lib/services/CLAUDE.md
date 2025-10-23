@@ -250,6 +250,56 @@ await SettingsService.resetToDefault();
 
 ---
 
+### 📂 course_import/ - HTML 课程导入子模块
+
+**职责**: 从 HTML 页面（如教务系统课表）解析并导入课程数据
+
+**子模块文档**: [📄 lib/services/course_import/CLAUDE.md](course_import/CLAUDE.md)
+
+**核心组件**:
+
+1. **course_html_import_service.dart** - 导入服务入口
+   - 解析 HTML 并返回 `CourseImportResult`
+   - 持久化解析结果到本地存储
+   - 自动分配课程颜色
+
+2. **parsers/** - 解析器集合
+   - `course_html_parser.dart` - 解析器接口
+   - `course_html_parser_registry.dart` - 解析器注册表
+   - `kingosoft_course_parser.dart` - 金格教务系统解析器
+
+3. **models/course_import_models.dart** - 导入数据模型
+   - `CourseImportSource` - 导入源封装
+   - `ParsedCourse` - 解析后的课程
+   - `CourseImportResult` - 解析结果
+   - `ParseStatus` - 解析状态枚举
+
+4. **utils/html_normalizer.dart** - HTML 标准化工具
+   - 处理 JSON 字符串包装
+   - 还原 Unicode 转义
+   - 清理转义符
+
+**使用示例**:
+
+```dart
+// 创建导入服务
+final importService = CourseHtmlImportService();
+
+// 解析并导入
+final source = CourseImportSource(rawContent: htmlContent);
+final result = await importService.importAndPersist(source);
+
+if (result.isSuccess) {
+  print('成功导入 ${result.courses.length} 门课程');
+} else {
+  print('导入失败: ${result.status}');
+}
+```
+
+**扩展性**: 支持通过实现 `CourseHtmlParser` 接口添加新的教务系统解析器
+
+---
+
 ## 服务层最佳实践
 
 ### ✅ 推荐做法

@@ -4,7 +4,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 变更记录 (Changelog)
 
-### 最近更新: 2025-10-17 16:30:00
+### 最近更新: 2025-10-23 10:00:00
+
+**v1.0.0+13 (2025-10-23) - AI 上下文文档增强**
+- 完善项目 AI 上下文文档体系
+  - 新增 `lib/services/course_import/CLAUDE.md` 子模块文档
+  - 涵盖 HTML 课程导入功能的完整架构、API、扩展指南
+  - 更新模块索引和 Mermaid 结构图
+  - 生成 `.claude/index.json` 元数据索引
+  - 扫描覆盖率：核心模块 100%，包含 6 个主要模块文档
+- 文档化课程导入子系统
+  - HTML 解析器架构（注册表模式）
+  - 金格教务系统解析器实现
+  - 数据标准化与容错处理流程
+  - 扩展新解析器的完整指南
 
 **v1.0.0+1 (2025-10-17) - 清理默认数据，优化首次启动体验**
 - 移除默认课程数据，应用首次启动时不再自动加载示例数据
@@ -286,6 +299,7 @@ graph TB
 |---------|---------|---------|---------|
 | [lib/models/](lib/models/) | 数据模型定义 | course.dart (含学期ID、隐藏标记)<br>semester_settings.dart (多学期)<br>time_table.dart<br>webdav_config.dart | [📄 lib/models/CLAUDE.md](lib/models/CLAUDE.md) |
 | [lib/services/](lib/services/) | 业务逻辑服务 | course_service.dart (学期筛选)<br>settings_service.dart (多学期+迁移)<br>time_table_service.dart<br>export_service.dart (版本管理)<br>webdav_service.dart<br>app_theme_service.dart<br>share_service.dart | [📄 lib/services/CLAUDE.md](lib/services/CLAUDE.md) |
+| [lib/services/course_import/](lib/services/course_import/) | HTML课程导入子模块 | course_html_import_service.dart<br>parsers/kingosoft_course_parser.dart<br>models/course_import_models.dart<br>utils/html_normalizer.dart | [📄 lib/services/course_import/CLAUDE.md](lib/services/course_import/CLAUDE.md) |
 | [lib/pages/](lib/pages/) | 页面组件 | course_table_page.dart<br>course_management_page.dart<br>semester_management_page.dart<br>time_table_management_page.dart<br>data_management_page.dart<br>webdav_backup_page.dart | [📄 lib/pages/CLAUDE.md](lib/pages/CLAUDE.md) |
 | [lib/widgets/](lib/widgets/) | 可复用组件 | course_detail_dialog.dart<br>course_edit_dialog.dart (冲突提示)<br>time_table_edit_dialog.dart<br>semester_edit_dialog.dart<br>course_table_share_dialog.dart | [📄 lib/widgets/CLAUDE.md](lib/widgets/CLAUDE.md) |
 | [lib/utils/](lib/utils/) | 工具函数 | course_colors.dart (18色色盘)<br>performance_tracker.dart (Firebase)<br>material_icon_loader.dart<br>web_file_utils.dart | [📄 lib/utils/CLAUDE.md](lib/utils/CLAUDE.md) |
