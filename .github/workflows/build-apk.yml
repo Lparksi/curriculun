@@ -380,17 +380,33 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Update version code file
+      - name: Update version files
         if: ${{ needs.prepare.outputs.version_code }}
         run: |
+          # 更新 version_code.txt
           echo "${{ needs.prepare.outputs.version_code }}" > android/version_code.txt
+          echo "✅ Updated android/version_code.txt to ${{ needs.prepare.outputs.version_code }}"
           cat android/version_code.txt
-      - name: Commit updated version code
+
+          # 更新 pubspec.yaml 中的 version
+          VERSION_NAME="${{ needs.prepare.outputs.version_name }}"
+          VERSION_CODE="${{ needs.prepare.outputs.version_code }}"
+          NEW_VERSION="${VERSION_NAME}+${VERSION_CODE}"
+
+          # 使用 sed 更新 pubspec.yaml
+          sed -i "s/^version:.*/version: ${NEW_VERSION}/" pubspec.yaml
+          echo "✅ Updated pubspec.yaml to version: ${NEW_VERSION}"
+
+          # 验证更新
+          echo "📋 Current version in pubspec.yaml:"
+          grep "^version:" pubspec.yaml
+
+      - name: Commit version updates
         if: ${{ needs.prepare.outputs.version_code }}
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-          git add android/version_code.txt
+          git add android/version_code.txt pubspec.yaml
           git commit -m "ci: update version code to ${{ needs.prepare.outputs.version_code }}" || echo "No changes to commit"
           git push
 
