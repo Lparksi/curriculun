@@ -11,6 +11,7 @@ import '../services/time_table_service.dart';
 import '../services/display_preferences_service.dart';
 import '../services/firebase_consent_service.dart';
 import '../services/firebase_init_service.dart';
+import '../utils/performance_tracker.dart';
 import '../widgets/course_detail_dialog.dart';
 import '../widgets/course_table_share_dialog.dart';
 import '../widgets/firebase_consent_dialog.dart';
@@ -56,42 +57,56 @@ class _CourseTablePageState extends State<CourseTablePage> {
 
   /// 加载设置并初始化
   Future<void> _loadSettingsAndInitialize() async {
-    // 并行加载设置、时间表和激活学期
-    final results = await Future.wait([
-      TimeTableService.getActiveTimeTable(),
-      SettingsService.getActiveSemester(),
-      DisplayPreferencesService.loadShowWeekend(),
-    ]);
+    return PerformanceTracker.instance.traceAsync(
+      traceName: PerformanceTraces.renderCourseTable,
+      operation: () async {
+        // 并行加载设置、时间表和激活学期
+        final results = await Future.wait([
+          TimeTableService.getActiveTimeTable(),
+          SettingsService.getActiveSemester(),
+          DisplayPreferencesService.loadShowWeekend(),
+        ]);
 
-    final timeTable = results[0] as TimeTable;
-    final semester = results[1] as SemesterSettings;
-    final showWeekend = results[2] as bool;
+        final timeTable = results[0] as TimeTable;
+        final semester = results[1] as SemesterSettings;
+        final showWeekend = results[2] as bool;
 
-    // 根据当前学期加载课程
-    final courses = await CourseService.loadCoursesBySemester(semester.id);
+        // 根据当前学期加载课程
+        final courses = await CourseService.loadCoursesBySemester(semester.id);
 
-    // 先设置基础数据,用于计算当前周次
-    _currentSemester = semester;
-    _semesterStartDate = semester.startDate;
-    _totalWeeks = semester.totalWeeks;
-    _currentTimeTable = timeTable;
+        // 先设置基础数据,用于计算当前周次
+        _currentSemester = semester;
+        _semesterStartDate = semester.startDate;
+        _totalWeeks = semester.totalWeeks;
+        _currentTimeTable = timeTable;
 
-    // 计算今天所在的实际周次
-    final actualWeek = _calculateWeekNumber(_today);
-    _currentWeek = actualWeek;
+        // 计算今天所在的实际周次
+        final actualWeek = _calculateWeekNumber(_today);
+        _currentWeek = actualWeek;
 
-    // 初始化 PageController，初始页面为今天所在周
-    _pageController = PageController(initialPage: _currentWeek - 1);
+        // 初始化 PageController，初始页面为今天所在周
+        _pageController = PageController(initialPage: _currentWeek - 1);
 
-    // 最后更新状态触发重新渲染
-    setState(() {
-      _courses = courses;
-      _isLoadingSettings = false;
-      _showWeekend = showWeekend;
-    });
+        // 最后更新状态触发重新渲染
+        setState(() {
+          _courses = courses;
+          _isLoadingSettings = false;
+          _showWeekend = showWeekend;
+        });
 
-    // 页面加载完成后，检查是否需要显示 Firebase 同意对话框
-    _checkFirebaseConsent();
+        // 页面加载完成后，检查是否需要显示 Firebase 同意对话框
+        _checkFirebaseConsent();
+      },
+      attributes: {
+        'semester_name': _currentSemester?.name ?? 'unknown',
+        'current_week': _currentWeek.toString(),
+      },
+      onComplete: (trace, _) {
+        PerformanceTracker.instance.addMetric(trace, 'course_count', _courses.length);
+        PerformanceTracker.instance.addMetric(trace, 'total_weeks', _totalWeeks);
+        PerformanceTracker.instance.addMetric(trace, 'section_count', _currentTimeTable.sections.length);
+      },
+    );
   }
 
   /// 检查是否需要显示 Firebase 同意对话框

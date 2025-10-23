@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/course.dart';
 import '../models/time_table.dart';
 import '../services/time_table_service.dart';
+import '../utils/performance_tracker.dart';
 
 /// 课程详情弹窗
 class CourseDetailDialog extends StatefulWidget {
@@ -10,10 +11,18 @@ class CourseDetailDialog extends StatefulWidget {
   const CourseDetailDialog({super.key, required this.course});
 
   /// 显示课程详情对话框
-  static void show(BuildContext context, Course course) {
-    showDialog(
-      context: context,
-      builder: (context) => CourseDetailDialog(course: course),
+  static Future<void> show(BuildContext context, Course course) {
+    return PerformanceTracker.instance.traceAsync(
+      traceName: PerformanceTraces.openCourseDetail,
+      operation: () => showDialog<void>(
+        context: context,
+        builder: (context) => CourseDetailDialog(course: course),
+      ),
+      attributes: {
+        'course_name': course.name,
+        'weekday': course.weekday.toString(),
+        'duration': course.duration.toString(),
+      },
     );
   }
 

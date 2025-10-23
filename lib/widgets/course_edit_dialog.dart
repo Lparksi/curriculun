@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/course.dart';
 import '../services/course_service.dart';
+import '../utils/performance_tracker.dart';
 
 /// 课程编辑对话框
 class CourseEditDialog extends StatefulWidget {
@@ -16,6 +17,35 @@ class CourseEditDialog extends StatefulWidget {
     required this.allCourses,
     this.semesterId,
   });
+
+  /// 显示课程编辑对话框
+  static Future<dynamic> show(
+    BuildContext context, {
+    Course? course,
+    int? courseIndex,
+    required List<Course> allCourses,
+    String? semesterId,
+  }) {
+    return PerformanceTracker.instance.traceAsync(
+      traceName: PerformanceTraces.openCourseEdit,
+      operation: () => Navigator.of(context).push<dynamic>(
+        MaterialPageRoute(
+          builder: (context) => CourseEditDialog(
+            course: course,
+            courseIndex: courseIndex,
+            allCourses: allCourses,
+            semesterId: semesterId,
+          ),
+          fullscreenDialog: true,
+        ),
+      ),
+      attributes: {
+        'mode': course == null ? 'add' : 'edit',
+        'course_count': allCourses.length.toString(),
+        if (course != null) 'course_name': course.name,
+      },
+    );
+  }
 
   @override
   State<CourseEditDialog> createState() => _CourseEditDialogState();
